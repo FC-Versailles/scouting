@@ -13,3 +13,4 @@ openpyxl
 fpdf
 reportlab
 adjustText
+xlsxwriter
