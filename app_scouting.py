@@ -10,7 +10,7 @@ import streamlit as st
 
 # Set Streamlit Page Configuration (must be the first Streamlit command)
 st.set_page_config(
-    page_title="FC Versailles | Player Analysis",
+    page_title="FC Versailles | Scouting",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -37,6 +37,7 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 from fpdf import FPDF
 import datetime
+import time
 
 
 DEFAULT_CREDS = {
@@ -149,116 +150,116 @@ df = df.loc[:, ~df.columns.duplicated()]  # Remove duplicate columns
 ##########################################################################################
 
 # Create Navigation for Multi-Page Application
-st.sidebar.title("FC Versailles | Analyse des Joueurs")
-page = st.sidebar.radio("", ["Scouting", "Rating", "Player Analysis","FCV Database"])
+st.sidebar.title("SCOUTING")
+page = st.sidebar.radio("", ["FCV Database"])
 
-# Define Pages
-if page == "Scouting":
-    st.title("Scouting")
+# # Define Pages
+# if page == "Scouting":
+#     st.title("Scouting")
     
-    # Filter Options
-    positions = st.multiselect('Select Player Positions', options=data['primary_position'].unique(), key="scouting_positions")
-    competitions = st.multiselect('Select Competitions', options=data['competition_name'].unique(), key="scouting_competitions")
-    age = st.slider('Age', int(data['age'].min()), int(data['age'].max()), (int(data['age'].min()), int(data['age'].max())), key="rating_age")
-    minutes = st.slider('Minutes', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
+#     # Filter Options
+#     positions = st.multiselect('Select Player Positions', options=data['primary_position'].unique(), key="scouting_positions")
+#     competitions = st.multiselect('Select Competitions', options=data['competition_name'].unique(), key="scouting_competitions")
+#     age = st.slider('Age', int(data['age'].min()), int(data['age'].max()), (int(data['age'].min()), int(data['age'].max())), key="rating_age")
+#     minutes = st.slider('Minutes', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
     
-    filtered_data = data
-    if positions:
-        filtered_data = filtered_data[filtered_data['primary_position'].isin(positions)]
-    if competitions:
-        filtered_data = filtered_data[filtered_data['competition_name'].isin(competitions)]
-    if competitions:
-        filtered_data = filtered_data[filtered_data['age'].isin(age)]
-    if competitions:
-        filtered_data = filtered_data[filtered_data['minutes'].isin(minutes)]
+#     filtered_data = data
+#     if positions:
+#         filtered_data = filtered_data[filtered_data['primary_position'].isin(positions)]
+#     if competitions:
+#         filtered_data = filtered_data[filtered_data['competition_name'].isin(competitions)]
+#     if competitions:
+#         filtered_data = filtered_data[filtered_data['age'].isin(age)]
+#     if competitions:
+#         filtered_data = filtered_data[filtered_data['minutes'].isin(minutes)]
     
-    st.dataframe(filtered_data, height=600)  # Ensure 'player_name' and 'primary_position' remain visible when scrolling
+#     st.dataframe(filtered_data, height=600)  # Ensure 'player_name' and 'primary_position' remain visible when scrolling
 
-elif page == "Rating":
-    st.title("Rating")
+# elif page == "Rating":
+#     st.title("Rating")
     
-    # Sidebar Filters
-    st.sidebar.subheader("Filters")
-    position_filter = st.sidebar.multiselect('Select Player Positions', options=data['primary_position'].dropna().unique(), key="rating_positions")
-    team_filter = st.sidebar.multiselect('Select Team', options=data['team_name'].dropna().unique(), key="rating_teams")
-    competition_filter = st.sidebar.multiselect('Select Competition', options=data['competition_name'].dropna().unique(), key="rating_competitions")
-    season_filter = st.sidebar.multiselect('Select Season', options=data['season_name'].dropna().unique(), key="rating_seasons")
-    age_filter = st.sidebar.slider('Age', int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True)), (int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True))), key="Age")
-    height_filter = st.sidebar.slider('Height Range (cm)', int(data['player_height'].min()), int(data['player_height'].max()), (int(data['player_height'].min()), int(data['player_height'].max())), key="rating_height")
-    minutes_filter = st.sidebar.slider('Minutes Played Range', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
+#     # Sidebar Filters
+#     st.sidebar.subheader("Filters")
+#     position_filter = st.sidebar.multiselect('Select Player Positions', options=data['primary_position'].dropna().unique(), key="rating_positions")
+#     team_filter = st.sidebar.multiselect('Select Team', options=data['team_name'].dropna().unique(), key="rating_teams")
+#     competition_filter = st.sidebar.multiselect('Select Competition', options=data['competition_name'].dropna().unique(), key="rating_competitions")
+#     season_filter = st.sidebar.multiselect('Select Season', options=data['season_name'].dropna().unique(), key="rating_seasons")
+#     age_filter = st.sidebar.slider('Age', int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True)), (int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True))), key="Age")
+#     height_filter = st.sidebar.slider('Height Range (cm)', int(data['player_height'].min()), int(data['player_height'].max()), (int(data['player_height'].min()), int(data['player_height'].max())), key="rating_height")
+#     minutes_filter = st.sidebar.slider('Minutes Played Range', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
     
-    # Apply filters
-    filtered_data = data
-    if position_filter:
-        filtered_data = filtered_data[filtered_data['primary_position'].isin(position_filter)]
-    if team_filter:
-        filtered_data = filtered_data[filtered_data['team_name'].isin(team_filter)]
-    if competition_filter:
-        filtered_data = filtered_data[filtered_data['competition_name'].isin(competition_filter)]
-    if season_filter:
-        filtered_data = filtered_data[filtered_data['season_name'].isin(season_filter)]
+#     # Apply filters
+#     filtered_data = data
+#     if position_filter:
+#         filtered_data = filtered_data[filtered_data['primary_position'].isin(position_filter)]
+#     if team_filter:
+#         filtered_data = filtered_data[filtered_data['team_name'].isin(team_filter)]
+#     if competition_filter:
+#         filtered_data = filtered_data[filtered_data['competition_name'].isin(competition_filter)]
+#     if season_filter:
+#         filtered_data = filtered_data[filtered_data['season_name'].isin(season_filter)]
     
-    filtered_data = filtered_data[(filtered_data['age'] >= age_filter[0]) & (filtered_data['age'] <= age_filter[1])]
-    filtered_data = filtered_data[(filtered_data['player_height'] >= height_filter[0]) & (filtered_data['player_height'] <= height_filter[1])]
-    filtered_data = filtered_data[(filtered_data['minutes'] >= minutes_filter[0]) & (filtered_data['minutes'] <= minutes_filter[1])]
+#     filtered_data = filtered_data[(filtered_data['age'] >= age_filter[0]) & (filtered_data['age'] <= age_filter[1])]
+#     filtered_data = filtered_data[(filtered_data['player_height'] >= height_filter[0]) & (filtered_data['player_height'] <= height_filter[1])]
+#     filtered_data = filtered_data[(filtered_data['minutes'] >= minutes_filter[0]) & (filtered_data['minutes'] <= minutes_filter[1])]
     
-    # Select Metrics for Comparison
-    metric_start = data.columns.get_loc("np_xg_per_shot")
-    metric_columns = data.columns[metric_start:].tolist()
+#     # Select Metrics for Comparison
+#     metric_start = data.columns.get_loc("np_xg_per_shot")
+#     metric_columns = data.columns[metric_start:].tolist()
     
-    if metric_columns:
-        x_axis = st.selectbox('Select X Axis Metric', options=metric_columns, key="rating_x_axis")
-        y_axis = st.selectbox('Select Y Axis Metric', options=metric_columns, key="rating_y_axis")
-    else:
-        st.write("No available metrics for selection.")
-        x_axis, y_axis = None, None
+#     if metric_columns:
+#         x_axis = st.selectbox('Select X Axis Metric', options=metric_columns, key="rating_x_axis")
+#         y_axis = st.selectbox('Select Y Axis Metric', options=metric_columns, key="rating_y_axis")
+#     else:
+#         st.write("No available metrics for selection.")
+#         x_axis, y_axis = None, None
 
-    if x_axis and y_axis:
-        fig = go.Figure()
+#     if x_axis and y_axis:
+#         fig = go.Figure()
         
-        for competition, comp_data in filtered_data.groupby('competition_name'):
-            fig.add_trace(go.Scatter(
-                x=comp_data[x_axis],
-                y=comp_data[y_axis],
-                mode='markers',
-                name=competition,
-                text=comp_data['player_name'],
-                hoverinfo='text',
-                marker=dict(size=10, opacity=0.7)
-            ))
+#         for competition, comp_data in filtered_data.groupby('competition_name'):
+#             fig.add_trace(go.Scatter(
+#                 x=comp_data[x_axis],
+#                 y=comp_data[y_axis],
+#                 mode='markers',
+#                 name=competition,
+#                 text=comp_data['player_name'],
+#                 hoverinfo='text',
+#                 marker=dict(size=10, opacity=0.7)
+#             ))
 
-        fig.update_layout(
-            title=f'{x_axis} vs {y_axis}',
-            xaxis_title=x_axis,
-            yaxis_title=y_axis,
-            template="plotly_white"
-        )
+#         fig.update_layout(
+#             title=f'{x_axis} vs {y_axis}',
+#             xaxis_title=x_axis,
+#             yaxis_title=y_axis,
+#             template="plotly_white"
+#         )
 
-        st.plotly_chart(fig)
-    else:
-        st.write("Select metrics for the plot.")
+#         st.plotly_chart(fig)
+#     else:
+#         st.write("Select metrics for the plot.")
 
 
 
-elif page == "Player Analysis":
-    st.title("Player Analysis")
+# elif page == "Player Analysis":
+#     st.title("Player Analysis")
 
-    # Player Selection
-    player_name = st.selectbox('Select Player', options=data['player_name'].unique(), key="player_analysis")
+#     # Player Selection
+#     player_name = st.selectbox('Select Player', options=data['player_name'].unique(), key="player_analysis")
 
-    if player_name:
-        player_data = data[data['player_name'] == player_name]
-        st.write(player_data)
+#     if player_name:
+#         player_data = data[data['player_name'] == player_name]
+#         st.write(player_data)
 
-        # Display Key Metrics
-        st.write("### Key Metrics")
-        st.write(player_data.describe().T)
-    else:
-        st.write("Select a player to analyze.")
+#         # Display Key Metrics
+#         st.write("### Key Metrics")
+#         st.write(player_data.describe().T)
+#     else:
+#         st.write("Select a player to analyze.")
         
         
-elif page == "FCV Database":
-    st.title("📂 FCV Player Database")
+if page == "FCV Database":
+    st.title("📂 Base de données | FC Versailles")
 
     # Create Filter Columns
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -421,32 +422,33 @@ new_report = st.text_area("📝 Add Your Observations", "")
 
 # Submit Button
 if st.button("✅ Submit Report"):
-    if selected_player and new_report:
-        # Get current timestamp
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Convert image to link (Placeholder for cloud storage logic)
-        if uploaded_file:
-            image_link = f"Uploaded: {uploaded_file.name}"  # In real-world use Google Drive
-        else:
-            image_link = "No Image"
-
-        # Append data to Google Sheets
-        sheet = build('sheets', 'v4', credentials=get_credentials()).spreadsheets()
-        new_entry = [[timestamp, selected_player, image_link, new_report]]
-
-        sheet.values().append(
-            spreadsheetId=SPREADSHEET_ID,
-            range=REPORTS_RANGE,  # Stores reports in a separate sheet
-            valueInputOption="RAW",
-            insertDataOption="INSERT_ROWS",
-            body={"values": new_entry}
-        ).execute()
-
-        st.success(f"✅ Report for {selected_player} successfully added!")
-
-    else:
-        st.error("⚠️ Please select a player and write a report before submitting.")
+    def submit_report(selected_player, uploaded_file, new_report):
+        if selected_player and new_report:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            image_link = f"Uploaded: {uploaded_file.name}" if uploaded_file else "No Image"
+    
+            # Ensure correct data structure for Google Sheets
+            new_entry = [[timestamp, selected_player, image_link, new_report]]
+    
+            try:
+                # Initialize Google Sheets API service
+                sheet = build('sheets', 'v4', credentials=get_credentials()).spreadsheets()
+    
+                # Prevent hitting API rate limits
+                time.sleep(2)
+    
+                response = sheet.values().append(
+                    spreadsheetId=SPREADSHEET_ID,
+                    range=REPORTS_RANGE,
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": new_entry}
+                ).execute()
+    
+                st.success(f"✅ Report for {selected_player} successfully added!")
+    
+            except Exception as e:
+                st.error(f"❌ Google Sheets API Error: {str(e)}")
 
 
 
