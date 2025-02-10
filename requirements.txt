@@ -3,5 +3,3 @@ pandas==1.1.5
 streamlit
 openpyxl
 spacy>=3.0.0
-https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.7.0/fr_core_news_sm-3.7.0.tar.gz
-
