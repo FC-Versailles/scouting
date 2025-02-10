@@ -14,3 +14,4 @@ fpdf
 reportlab
 adjustText
 xlsxwriter
+plotly
