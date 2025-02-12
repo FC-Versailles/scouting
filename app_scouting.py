@@ -38,6 +38,8 @@ from io import BytesIO
 from fpdf import FPDF
 import datetime
 import time
+import requests_cache
+
 
 
 DEFAULT_CREDS = {
@@ -50,6 +52,7 @@ comp = sb.competitions(creds = DEFAULT_CREDS)
 
 # Disable caching to avoid SQLite errors
 sb.CACHE_ENABLED = False  
+session = requests_cache.CachedSession(backend="memory")
 
 df1 = sb.player_season_stats(competition_id=129, season_id=317,creds = DEFAULT_CREDS)
 df2 = sb.player_season_stats(competition_id=7, season_id=317,creds = DEFAULT_CREDS)
@@ -146,6 +149,45 @@ def load_data():
 
 df = load_data()
 df = df.loc[:, ~df.columns.duplicated()]  # Remove duplicate columns
+
+# 🔹 Ensure "Age" is calculated
+if "Date de naissance" in df.columns:
+    df["Date de naissance"] = pd.to_numeric(df["Date de naissance"], errors="coerce")
+    current_year = datetime.datetime.now().year
+    df["Age"] = current_year - df["Date de naissance"]
+else:
+    st.error("⚠️ 'Date de naissance' column missing in database!")
+
+@st.cache_data(ttl=60)
+def load_reports():
+    reports = fetch_google_sheet(SPREADSHEET_ID, "Reports")
+    
+    # Ensure correct column names
+    reports.columns = ["Timestamp", "Player", "Image", "Comment"]  
+    
+    # Group comments per player (Concatenate all comments)
+    reports_grouped = reports.groupby("Player")["Comment"].apply(lambda x: "<br><br>".join(x)).reset_index()
+    
+    return reports_grouped  # ✅ Returns a DataFrame where each player has ALL their comments
+
+# Load reports and ensure it only has one row per player
+reports_df = load_reports()
+
+# Normalize player names for accurate merging
+df["Player"] = df["Player"].astype(str).str.strip().str.lower()
+reports_df["Player"] = reports_df["Player"].astype(str).str.strip().str.lower()
+
+# Merge player data with reports using LEFT JOIN (Ensures all players are kept)
+df = df.merge(reports_df, on="Player", how="left")
+
+
+# ---- APPLY FILTERS FOR THE MAIN TABLE ----
+columns_to_display = ["Player", "Prénom", "Age", "Poste", "Pied", "Club", "Fin de contrat"]
+filtered_df = df.copy()
+
+# 🔹 Ensure all selected columns exist before filtering
+filtered_df = filtered_df[[col for col in columns_to_display if col in filtered_df.columns]]
+
 
 ##########################################################################################
 
@@ -321,29 +363,7 @@ if page == "FCV Database":
         hide_index=True,
         use_container_width=True
     )
-
-    # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
-    st.subheader("📄 Player Reports")
     
-    # Select the first 10 players from the filtered dataframe
-    top_players_df = filtered_df.head(5)
-    
-    for _, row in top_players_df.iterrows():
-        with st.expander(f"🔍 {row['Player']} - {row['Poste']} at {row['Club']}"):
-            st.write(f"**Player:** {row['Player']}")
-            st.write(f"**Position:** {row['Poste']}")
-            st.write(f"**Club:** {row['Club']}")
-            st.write(f"**Contract End:** {row['Fin de contrat']}")
-            st.write("### 📝 Scouting Report:")
-    
-            # Ensure the "Rapport" column exists and display it properly formatted
-            if "Rapport" in df.columns:
-                report_text = df.loc[df['Player'] == row['Player'], 'Rapport'].values[0] if not df.loc[df['Player'] == row['Player'], 'Rapport'].isna().all() else "No Report Available"
-                st.markdown(f"<div style='white-space: pre-wrap;'>{report_text}</div>", unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ No 'Rapport' column found in the database.")
-
-
     # ---- EXPORT OPTIONS ----
     colA, colB = st.columns([1, 1])
 
@@ -365,54 +385,80 @@ if page == "FCV Database":
 
     # Export to PDF
 
-    def convert_df_to_pdf(df):
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
+    # def convert_df_to_pdf(df):
+    #     pdf = FPDF()
+    #     pdf.set_auto_page_break(auto=True, margin=15)
+    #     pdf.add_page()
+    #     pdf.set_font("Arial", size=12)
     
-        pdf.cell(200, 10, txt="FC Versailles Scouting Report", ln=True, align='C')
-        pdf.ln(10)
+    #     pdf.cell(200, 10, txt="FC Versailles Scouting Report", ln=True, align='C')
+    #     pdf.ln(10)
     
-        for i, row in df.iterrows():
-            pdf.cell(200, 10, txt=f"Player: {row['Player']} | Position: {row['Poste']} | Age: {row['Age']}", ln=True)
-            pdf.cell(200, 10, txt=f"Club: {row['Club']} | Contract End: {row['Fin de contrat']}", ln=True)
-            pdf.ln(5)
+    #     for i, row in df.iterrows():
+    #         pdf.cell(200, 10, txt=f"Player: {row['Player']} | Position: {row['Poste']} | Age: {row['Age']}", ln=True)
+    #         pdf.cell(200, 10, txt=f"Club: {row['Club']} | Contract End: {row['Fin de contrat']}", ln=True)
+    #         pdf.ln(5)
     
-        pdf_output = BytesIO()
-        pdf_output.write(pdf.output(dest='S').encode('latin1'))  # Fix the TypeError
+    #     pdf_output = BytesIO()
+    #     pdf_output.write(pdf.output(dest='S').encode('latin1'))  # Fix the TypeError
     
-        return pdf_output.getvalue()
+    #     return pdf_output.getvalue()
 
-    pdf_data = convert_df_to_pdf(filtered_df)
-    colB.download_button(
-        label="📄 Download PDF",
-        data=pdf_data,
-        file_name="FCV_Scouting_Report.pdf",
-        mime="application/pdf"
-    )
+    # pdf_data = convert_df_to_pdf(filtered_df)
+    # colB.download_button(
+    #     label="📄 Download PDF",
+    #     data=pdf_data,
+    #     file_name="FCV_Scouting_Report.pdf",
+    #     mime="application/pdf"
+    # )
 
-    # ---- VISUALIZATION ----
-    st.subheader("📊 Player Distribution by Position")
-    position_counts = filtered_df["Poste"].value_counts().reset_index()
-    position_counts.columns = ["Position", "Count"]
 
-    fig = px.bar(
-        position_counts, 
-        x="Position", 
-        y="Count", 
-        title="Players per Position", 
-        text="Count", 
-        color="Position"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
+ # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
+st.subheader("📄 Rapport sur les joueurs")
+
+# Select the first 5 players from the filtered dataframe
+top_players_df = df.loc[filtered_df.index[:5], ["Player", "Poste", "Club", "Fin de contrat", "Rapport", "Comment"]]
+
+# Debugging: Check if "Rapport" and "Comment" exist
+
+
+for _, row in top_players_df.iterrows():
+    with st.expander(f"🔍 {row['Player']} - {row['Poste']} at {row['Club']}"):
+        st.write(f"**Player:** {row['Player']}")
+        st.write(f"**Position:** {row['Poste']}")
+        st.write(f"**Club:** {row['Club']}")
+        st.write(f"**Contract End:** {row['Fin de contrat']}")
+
+        st.write("### ✍️ Scouting Report:")
+
+        # Convert NaN to empty string and strip whitespace
+        rapport_value = str(row.get("Rapport", "")).strip()
+        comment_value = str(row.get("Comment", "")).strip()
+
+        # Display "Rapport"
+        if rapport_value:
+            st.markdown(f"<div style='white-space: pre-wrap;'><strong>📝 Rapport:</strong><br>{rapport_value}</div>", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ No 'Rapport' available for this player.")
+
+        # Display "Comment"
+        if comment_value:
+            st.markdown(f"<div style='white-space: pre-wrap;'><strong><br>💬 Comments:</strong><br>{comment_value}</div>", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ No comments available for this player.")
+
+
 
 # ---- SECTION: ADD NEW SCOUTING REPORT ----
-st.title("📂 Add a Scouting Report")
+st.subheader("📂 Ajouter un rapport sur un joueur")
 
 # Select a Player from the Database
 players_list = df["Player"].unique().tolist()
-selected_player = st.selectbox("🔍 Select Player to Add Report", players_list)
+if not players_list:  # If the list is empty, set a default option
+    players_list = ["No Players Available"]
+selected_player = st.selectbox("🔍 Select a player", options=players_list, label_visibility="collapsed")
+
 
 # Upload an Image
 uploaded_file = st.file_uploader("📸 Upload Image", type=["png", "jpg", "jpeg"])
@@ -421,36 +467,65 @@ uploaded_file = st.file_uploader("📸 Upload Image", type=["png", "jpg", "jpeg"
 new_report = st.text_area("📝 Add Your Observations", "")
 
 # Submit Button
-if st.button("✅ Submit Report"):
-    def submit_report(selected_player, uploaded_file, new_report):
-        if selected_player and new_report:
+submit_button = st.button("✅ Submit Report")
+
+if submit_button:  # Ensures the function is only triggered when button is clicked
+    if selected_player and new_report.strip():  # Ensure input is not empty
+        st.write("🔹 Debug: Submitting the following report")
+        st.write(f"Player: {selected_player}")
+        st.write(f"Report: {new_report}")
+
+        # Function to Submit Report to Google Sheets
+        def submit_report(selected_player, uploaded_file, new_report):
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             image_link = f"Uploaded: {uploaded_file.name}" if uploaded_file else "No Image"
-    
-            # Ensure correct data structure for Google Sheets
+
+            # Ensure correct data format
             new_entry = [[timestamp, selected_player, image_link, new_report]]
-    
+
+            st.write("✅ Debug: Data being sent to Google Sheets:", new_entry)  # ✅ Debugging
+
             try:
                 # Initialize Google Sheets API service
                 sheet = build('sheets', 'v4', credentials=get_credentials()).spreadsheets()
-    
-                # Prevent hitting API rate limits
+
+                # Prevent API rate limits
                 time.sleep(2)
-    
+
                 response = sheet.values().append(
                     spreadsheetId=SPREADSHEET_ID,
-                    range=REPORTS_RANGE,
+                    range="Reports!A:D",  # Ensure this is the correct sheet tab
                     valueInputOption="RAW",
-                    insertDataOption="INSERT_ROWS",
+                    insertDataOption="INSERT_ROWS",  # ✅ Forces data into a new row
                     body={"values": new_entry}
                 ).execute()
-    
+
                 st.success(f"✅ Report for {selected_player} successfully added!")
-    
+                st.write("✅ Debug: Google Sheets API Response:", response)  # ✅ Debugging
+
             except Exception as e:
                 st.error(f"❌ Google Sheets API Error: {str(e)}")
 
+        # Call the function to send the data
+        submit_report(selected_player, uploaded_file, new_report)
+    
+    else:
+        st.error("⚠️ Please select a player and write a report before submitting.")
 
+    # ---- VISUALIZATION ----
+st.subheader("📊 Player Distribution by Position")
+position_counts = filtered_df["Poste"].value_counts().reset_index()
+position_counts.columns = ["Position", "Count"]
+
+fig = px.bar(
+    position_counts, 
+    x="Position", 
+    y="Count", 
+    title="", 
+    text="Count", 
+    color="Position"
+    )
+st.plotly_chart(fig, use_container_width=True)
 
 
 
