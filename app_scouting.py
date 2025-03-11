@@ -1,109 +1,32 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 28 10:14:37 2025
-
-@author: fcvmathieu
-"""
-
 import streamlit as st
-
-# Set Streamlit Page Configuration (must be the first Streamlit command)
-st.set_page_config(
-    page_title="FC Versailles | Scouting",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-from statsbombpy import sb
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as path_effects
-from adjustText import adjust_text
-import plotly.graph_objects as go
-import streamlit as st
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
+import datetime
 import os
 import pickle
-import ast
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.backends.backend_pdf import PdfPages
-import plotly.express as px
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from io import BytesIO
-from fpdf import FPDF
-import datetime
-import time
-import requests_cache
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
+st.set_page_config(layout='wide')
 
-
-DEFAULT_CREDS = {
-    "user": "mathieu.feigean@fcversailles.com",
-    "passwd": "uVBxDK5X",
-}
-
-# Looking at all competitions to search for comp and season id
-comp = sb.competitions(creds = DEFAULT_CREDS)
-
-# Disable caching to avoid SQLite errors
-sb.CACHE_ENABLED = False  
-session = requests_cache.CachedSession(backend="memory")
-
-df1 = sb.player_season_stats(competition_id=129, season_id=317,creds = DEFAULT_CREDS)
-df2 = sb.player_season_stats(competition_id=7, season_id=317,creds = DEFAULT_CREDS)
-df3 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
-
-data = pd.concat([df1, df2,df3], ignore_index=True)
-
-data = data.drop(columns=[
-    'account_id', 'player_id', 'team_id', 'competition_id', 'season_id', 
-    'country_id', 'player_female', 'player_first_name', 'player_last_name', 'player_known_name'
-])
-
-
-# Remove the "player_season_" prefix from applicable column names
-updated_columns = {col: col.replace("player_season_", "") for col in data.columns if col.startswith("player_season_")}
-data.rename(columns=updated_columns, inplace=True)
-
-data = data.dropna(axis=1, how='all')
-
-data['birth_date1'] = pd.to_datetime(data['birth_date'], errors='coerce').dt.year
-data['birth_date1'] = data['birth_date1'].astype(float).astype('Int64')
-
-# Create age column
-current_year = datetime.datetime.now().year  # Use full module reference
-timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-data['age'] = current_year - data['birth_date1']
-data = data.drop(columns=['birth_date1'])
-
-column_order = (
-    ['player_name', 'primary_position', 'secondary_position', 
-     'team_name', 'competition_name','season_name', 
-     'birth_date','age', 'player_weight', 
-     'player_height', 'minutes', 'starting_appearances', 'appearances', 'average_minutes', 'most_recent_match', '90s_played'] + 
-    [col for col in data.columns if col not in [
-    'player_name', 'primary_position', 'secondary_position', 
-    'team_name', 'competition_name','season_name',
-    'birth_date','age', 'player_weight', 
-    'player_height', 'minutes', 'starting_appearances', 'appearances', 'average_minutes', 'most_recent_match', '90s_played']]
-)
-
-data = data[column_order]
-
-##########################################################################################
+# Display the club logo from GitHub at the top right
+logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
+col1, col2 = st.columns([9, 1])
+with col1:
+    st.title("Recrutement| FC Versailles")
+with col2:
+    st.image(logo_url, use_container_width=True)
+    
+# Add a horizontal line to separate the header
+st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
 
 
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 TOKEN_FILE = 'token.pickle'
-SPREADSHEET_ID = '1bqVJ5zSBJJsZe_PsH5lzspFKA6P0l3Mfc4jta00Jh9k'  # Replace with your actual Google Sheet ID
-DATABASE_RANGE = 'Feuille 1'  # Your main protected player database
-REPORTS_RANGE = 'Reports'  # Separate sheet to store scouting reports
+SPREADSHEET_ID = '1bqVJ5zSBJJsZe_PsH5lzspFKA6P0l3Mfc4jta00Jh9k'  # Replace with actual Google Sheet ID
+DATABASE_RANGE = 'Feuille 1'
 
 # ---- FUNCTION: GET GOOGLE SHEETS CREDENTIALS ----
 def get_credentials():
@@ -135,12 +58,7 @@ def fetch_google_sheet(spreadsheet_id, range_name):
         return pd.DataFrame()
     header = values[0]
     data = values[1:]
-    max_columns = len(header)
-    adjusted_data = [
-        row + [None] * (max_columns - len(row)) if len(row) < max_columns else row[:max_columns]
-        for row in data
-    ]
-    return pd.DataFrame(adjusted_data, columns=header)
+    return pd.DataFrame(data, columns=header)
 
 # ---- FUNCTION: LOAD MAIN DATABASE ----
 @st.cache_data(ttl=60)
@@ -148,9 +66,9 @@ def load_data():
     return fetch_google_sheet(SPREADSHEET_ID, DATABASE_RANGE)
 
 df = load_data()
-df = df.loc[:, ~df.columns.duplicated()]  # Remove duplicate columns
+df = df.loc[:, ~df.columns.duplicated()]
 
-# 🔹 Ensure "Age" is calculated
+# Convert "Date de naissance" to numeric for age calculation
 if "Date de naissance" in df.columns:
     df["Date de naissance"] = pd.to_numeric(df["Date de naissance"], errors="coerce")
     current_year = datetime.datetime.now().year
@@ -158,374 +76,168 @@ if "Date de naissance" in df.columns:
 else:
     st.error("⚠️ 'Date de naissance' column missing in database!")
 
-@st.cache_data(ttl=60)
-def load_reports():
-    reports = fetch_google_sheet(SPREADSHEET_ID, "Reports")
-    
-    # Ensure correct column names
-    reports.columns = ["Timestamp", "Player", "Image", "Comment"]  
-    
-    # Group comments per player (Concatenate all comments)
-    reports_grouped = reports.groupby("Player")["Comment"].apply(lambda x: "<br><br>".join(x)).reset_index()
-    
-    return reports_grouped  # ✅ Returns a DataFrame where each player has ALL their comments
+# Sidebar for page selection
+page = st.sidebar.selectbox("Select Page", ["FCV Database", "Statsbomb Data"])
 
-# Load reports and ensure it only has one row per player
-reports_df = load_reports()
-
-# Normalize player names for accurate merging
-df["Player"] = df["Player"].astype(str).str.strip().str.lower()
-reports_df["Player"] = reports_df["Player"].astype(str).str.strip().str.lower()
-
-# Merge player data with reports using LEFT JOIN (Ensures all players are kept)
-df = df.merge(reports_df, on="Player", how="left")
-
-
-# ---- APPLY FILTERS FOR THE MAIN TABLE ----
-columns_to_display = ["Player", "Prénom", "Age", "Poste", "Pied", "Club", "Fin de contrat"]
-filtered_df = df.copy()
-
-# 🔹 Ensure all selected columns exist before filtering
-filtered_df = filtered_df[[col for col in columns_to_display if col in filtered_df.columns]]
-
-
-##########################################################################################
-
-# Create Navigation for Multi-Page Application
-st.sidebar.title("SCOUTING")
-page = st.sidebar.radio("", ["FCV Database"])
-
-# # Define Pages
-# if page == "Scouting":
-#     st.title("Scouting")
-    
-#     # Filter Options
-#     positions = st.multiselect('Select Player Positions', options=data['primary_position'].unique(), key="scouting_positions")
-#     competitions = st.multiselect('Select Competitions', options=data['competition_name'].unique(), key="scouting_competitions")
-#     age = st.slider('Age', int(data['age'].min()), int(data['age'].max()), (int(data['age'].min()), int(data['age'].max())), key="rating_age")
-#     minutes = st.slider('Minutes', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
-    
-#     filtered_data = data
-#     if positions:
-#         filtered_data = filtered_data[filtered_data['primary_position'].isin(positions)]
-#     if competitions:
-#         filtered_data = filtered_data[filtered_data['competition_name'].isin(competitions)]
-#     if competitions:
-#         filtered_data = filtered_data[filtered_data['age'].isin(age)]
-#     if competitions:
-#         filtered_data = filtered_data[filtered_data['minutes'].isin(minutes)]
-    
-#     st.dataframe(filtered_data, height=600)  # Ensure 'player_name' and 'primary_position' remain visible when scrolling
-
-# elif page == "Rating":
-#     st.title("Rating")
-    
-#     # Sidebar Filters
-#     st.sidebar.subheader("Filters")
-#     position_filter = st.sidebar.multiselect('Select Player Positions', options=data['primary_position'].dropna().unique(), key="rating_positions")
-#     team_filter = st.sidebar.multiselect('Select Team', options=data['team_name'].dropna().unique(), key="rating_teams")
-#     competition_filter = st.sidebar.multiselect('Select Competition', options=data['competition_name'].dropna().unique(), key="rating_competitions")
-#     season_filter = st.sidebar.multiselect('Select Season', options=data['season_name'].dropna().unique(), key="rating_seasons")
-#     age_filter = st.sidebar.slider('Age', int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True)), (int(data['age'].min(skipna=True)), int(data['age'].max(skipna=True))), key="Age")
-#     height_filter = st.sidebar.slider('Height Range (cm)', int(data['player_height'].min()), int(data['player_height'].max()), (int(data['player_height'].min()), int(data['player_height'].max())), key="rating_height")
-#     minutes_filter = st.sidebar.slider('Minutes Played Range', int(data['minutes'].min()), int(data['minutes'].max()), (int(data['minutes'].min()), int(data['minutes'].max())), key="rating_minutes")
-    
-#     # Apply filters
-#     filtered_data = data
-#     if position_filter:
-#         filtered_data = filtered_data[filtered_data['primary_position'].isin(position_filter)]
-#     if team_filter:
-#         filtered_data = filtered_data[filtered_data['team_name'].isin(team_filter)]
-#     if competition_filter:
-#         filtered_data = filtered_data[filtered_data['competition_name'].isin(competition_filter)]
-#     if season_filter:
-#         filtered_data = filtered_data[filtered_data['season_name'].isin(season_filter)]
-    
-#     filtered_data = filtered_data[(filtered_data['age'] >= age_filter[0]) & (filtered_data['age'] <= age_filter[1])]
-#     filtered_data = filtered_data[(filtered_data['player_height'] >= height_filter[0]) & (filtered_data['player_height'] <= height_filter[1])]
-#     filtered_data = filtered_data[(filtered_data['minutes'] >= minutes_filter[0]) & (filtered_data['minutes'] <= minutes_filter[1])]
-    
-#     # Select Metrics for Comparison
-#     metric_start = data.columns.get_loc("np_xg_per_shot")
-#     metric_columns = data.columns[metric_start:].tolist()
-    
-#     if metric_columns:
-#         x_axis = st.selectbox('Select X Axis Metric', options=metric_columns, key="rating_x_axis")
-#         y_axis = st.selectbox('Select Y Axis Metric', options=metric_columns, key="rating_y_axis")
-#     else:
-#         st.write("No available metrics for selection.")
-#         x_axis, y_axis = None, None
-
-#     if x_axis and y_axis:
-#         fig = go.Figure()
-        
-#         for competition, comp_data in filtered_data.groupby('competition_name'):
-#             fig.add_trace(go.Scatter(
-#                 x=comp_data[x_axis],
-#                 y=comp_data[y_axis],
-#                 mode='markers',
-#                 name=competition,
-#                 text=comp_data['player_name'],
-#                 hoverinfo='text',
-#                 marker=dict(size=10, opacity=0.7)
-#             ))
-
-#         fig.update_layout(
-#             title=f'{x_axis} vs {y_axis}',
-#             xaxis_title=x_axis,
-#             yaxis_title=y_axis,
-#             template="plotly_white"
-#         )
-
-#         st.plotly_chart(fig)
-#     else:
-#         st.write("Select metrics for the plot.")
-
-
-
-# elif page == "Player Analysis":
-#     st.title("Player Analysis")
-
-#     # Player Selection
-#     player_name = st.selectbox('Select Player', options=data['player_name'].unique(), key="player_analysis")
-
-#     if player_name:
-#         player_data = data[data['player_name'] == player_name]
-#         st.write(player_data)
-
-#         # Display Key Metrics
-#         st.write("### Key Metrics")
-#         st.write(player_data.describe().T)
-#     else:
-#         st.write("Select a player to analyze.")
-        
-        
 if page == "FCV Database":
-    st.title("📂 Base de données | FC Versailles")
+    st.header("📂 Scouting Database")
 
     # Create Filter Columns
     col1, col2, col3, col4, col5 = st.columns(5)
 
     # 🔹 Position Filter
     positions = df['Poste'].dropna().unique().tolist()
-    selected_position = col1.multiselect("🔍 Select Position", options=positions, default=[])
+    selected_position = col1.multiselect("🔍 Le poste", options=positions, default=[])
 
     # 🔹 Championship Filter
-    championships = df['championnat'].dropna().unique().tolist()
-    selected_championship = col2.multiselect("🏆 Select Championship", options=championships, default=[])
+    championships = df['Championnat'].dropna().unique().tolist()
+    selected_championship = col2.multiselect("🏆 Le championnat", options=championships, default=[])
 
-    # 🔹 Birth Year (Converted to Age)
-    df['Date de naissance'] = pd.to_numeric(df['Date de naissance'], errors='coerce')
-    current_year = datetime.datetime.now().year  # ✅ Correct reference
-    df['Age'] = current_year - df['Date de naissance']
+    # ✅ **Convert "Submitted at" to Datetime Format**
+    df["Submitted at"] = pd.to_datetime(df["Submitted at"], errors="coerce").dt.tz_localize(None)
+
+    # ✅ Ensure Submission Date is not empty
+    if df["Submitted at"].notna().sum() > 0:
+        min_date = df["Submitted at"].min()
+        max_date = df["Submitted at"].max()
+    else:
+        min_date = datetime.datetime.now() - datetime.timedelta(days=30)
+        max_date = datetime.datetime.now()
 
 
-    min_birth_year = int(df['Date de naissance'].min(skipna=True))
-    max_birth_year = int(df['Date de naissance'].max(skipna=True))
-    
-    selected_birth_year = col3.slider("📅 Select Birth Year", min_birth_year, max_birth_year, (min_birth_year, max_birth_year))
-    
+    # ✅ Submission Date Slider (Use datetime.date() to fix TypeError)
+    selected_start_date, selected_end_date = col5.slider(
+        "📆 Date d'ajout",
+        min_value=min_date.date(),
+        max_value=max_date.date(),
+        value=(min_date.date(), max_date.date()),
+        format="MM-YY"
+    )
+
+    # ✅ Convert selected dates back to datetime for filtering
+    selected_start_date = datetime.datetime.combine(selected_start_date, datetime.time.min)
+    selected_end_date = datetime.datetime.combine(selected_end_date, datetime.time.max)
+
+
+    # 🔹 Convert Birth Year
+    df["Date de naissance"] = pd.to_numeric(df["Date de naissance"], errors="coerce")
+
+    # 🔹 Ensure Valid Birth Years Exist
+    if df["Date de naissance"].notna().sum() > 0:
+        min_birth_year = int(df["Date de naissance"].min(skipna=True))
+        max_birth_year = int(df["Date de naissance"].max(skipna=True))
+    else:
+        min_birth_year, max_birth_year = 1980, datetime.datetime.now().year
+
+    # ✅ Birth Year Slider
+    selected_birth_year = col3.slider(
+        "📅 Date de Naissance",
+        min_birth_year,
+        max_birth_year,
+        (min_birth_year, max_birth_year)
+    )
+
     # 🔹 Player Search Box
-    search_query = col4.text_input("🔎 Search Player", "")
+    search_query = col4.text_input("🔎 Recherche joueur", "")
 
-    # 🔹 Sorting by Key Metric
-    sorting_metric = col5.selectbox("📊 Sort by Metric", ["Age", "Fin de Contrat"])
-
-    # ---- APPLY FILTERS ----
+    # 🔹 Apply Filters
     filtered_df = df.copy()
 
     if selected_position:
         filtered_df = filtered_df[filtered_df['Poste'].isin(selected_position)]
     if selected_championship:
-        filtered_df = filtered_df[filtered_df['championnat'].isin(selected_championship)]
-    
+        filtered_df = filtered_df[filtered_df['Championnat'].isin(selected_championship)]
+
+    # ✅ **Filter by Submission Date Range**
+    filtered_df = filtered_df[
+        (filtered_df["Submitted at"] >= selected_start_date) & 
+        (filtered_df["Submitted at"] <= selected_end_date)
+    ]
+
+    # ✅ **Filter by Birth Year**
     filtered_df = filtered_df[
         (filtered_df["Date de naissance"] >= selected_birth_year[0]) &
         (filtered_df["Date de naissance"] <= selected_birth_year[1])
     ]
 
+    # ✅ **Filter by Player Name (Case Insensitive)**
     if search_query:
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
 
-    # ---- SORTING ----
-    if sorting_metric in filtered_df.columns:
-        filtered_df = filtered_df.sort_values(by=sorting_metric, ascending=False)
 
     # ---- SELECT COLUMNS TO DISPLAY ----
-    columns_to_display = ["Player", "Prénom", "Age", "Poste", "Pied", "Club", "Fin de contrat"]
-    
-    # Ensure only existing columns are displayed
+    columns_to_display = ["Player","Pied", "Poste","Championnat", "Club", "Fin de contrat", "Rapport"]
     filtered_df = filtered_df[columns_to_display]
 
-    # ---- DISPLAY INTERACTIVE TABLE WITHOUT "Rapport" ----
+    # ---- DISPLAY INTERACTIVE TABLE WITH IMPROVED RAPPORT VISIBILITY ----
+    st.markdown("""
+        <style>
+            .st-emotion-cache-1uixxvy {  /* Custom class for text columns */
+                max-height: 6em !important;
+                overflow: auto !important;
+                white-space: pre-wrap !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
     st.data_editor(
         filtered_df,
         hide_index=True,
-        use_container_width=True
+        use_container_width=True,
+        column_config={
+            "Rapport": st.column_config.TextColumn(
+                width="large",
+                max_chars=None,
+                help="Rapport détaillé sur le joueur"
+            )
+        }
     )
-    
-    # ---- EXPORT OPTIONS ----
-    colA, colB = st.columns([1, 1])
 
-    # Export to Excel
+# ---- EXPORT TO EXCEL BUTTON ----
     def convert_df_to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name="Scouting_Data", index=False)
+            df.to_excel(writer, index=False, sheet_name='Scouting Data')
         processed_data = output.getvalue()
         return processed_data
-
+    
     excel_data = convert_df_to_excel(filtered_df)
-    colA.download_button(
-        label="📥 Download Excel",
+    st.download_button(
+        label="📂 Download Excel",
         data=excel_data,
         file_name="FCV_Scouting_Data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # Export to PDF
 
-    # def convert_df_to_pdf(df):
-    #     pdf = FPDF()
-    #     pdf.set_auto_page_break(auto=True, margin=15)
-    #     pdf.add_page()
-    #     pdf.set_font("Arial", size=12)
+     # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
+    st.subheader("📄 Rapport sur les joueurs")
     
-    #     pdf.cell(200, 10, txt="FC Versailles Scouting Report", ln=True, align='C')
-    #     pdf.ln(10)
+    # Select the first 5 players from the filtered dataframe
+    top_players_df = df.loc[filtered_df.index[:5], ["Player","Transfermarkt","Pied", "Taille", "Poste","Championnat", "Club", "Fin de contrat", "Rapport"]]
     
-    #     for i, row in df.iterrows():
-    #         pdf.cell(200, 10, txt=f"Player: {row['Player']} | Position: {row['Poste']} | Age: {row['Age']}", ln=True)
-    #         pdf.cell(200, 10, txt=f"Club: {row['Club']} | Contract End: {row['Fin de contrat']}", ln=True)
-    #         pdf.ln(5)
+    # Debugging: Check if "Rapport" and "Comment" exist
     
-    #     pdf_output = BytesIO()
-    #     pdf_output.write(pdf.output(dest='S').encode('latin1'))  # Fix the TypeError
     
-    #     return pdf_output.getvalue()
-
-    # pdf_data = convert_df_to_pdf(filtered_df)
-    # colB.download_button(
-    #     label="📄 Download PDF",
-    #     data=pdf_data,
-    #     file_name="FCV_Scouting_Report.pdf",
-    #     mime="application/pdf"
-    # )
-
-
-    # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
- # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
-st.subheader("📄 Rapport sur les joueurs")
-
-# Select the first 5 players from the filtered dataframe
-top_players_df = df.loc[filtered_df.index[:5], ["Player", "Poste", "Club", "Fin de contrat", "Rapport", "Comment"]]
-
-# Debugging: Check if "Rapport" and "Comment" exist
-
-
-for _, row in top_players_df.iterrows():
-    with st.expander(f"🔍 {row['Player']} - {row['Poste']} at {row['Club']}"):
-        st.write(f"**Player:** {row['Player']}")
-        st.write(f"**Position:** {row['Poste']}")
-        st.write(f"**Club:** {row['Club']}")
-        st.write(f"**Contract End:** {row['Fin de contrat']}")
-
-        st.write("### ✍️ Scouting Report:")
-
-        # Convert NaN to empty string and strip whitespace
-        rapport_value = str(row.get("Rapport", "")).strip()
-        comment_value = str(row.get("Comment", "")).strip()
-
-        # Display "Rapport"
-        if rapport_value:
-            st.markdown(f"<div style='white-space: pre-wrap;'><strong>📝 Rapport:</strong><br>{rapport_value}</div>", unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ No 'Rapport' available for this player.")
-
-        # Display "Comment"
-        if comment_value:
-            st.markdown(f"<div style='white-space: pre-wrap;'><strong><br>💬 Comments:</strong><br>{comment_value}</div>", unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ No comments available for this player.")
-
-
-
-# ---- SECTION: ADD NEW SCOUTING REPORT ----
-st.subheader("📂 Ajouter un rapport sur un joueur")
-
-# Select a Player from the Database
-players_list = df["Player"].unique().tolist()
-if not players_list:  # If the list is empty, set a default option
-    players_list = ["No Players Available"]
-selected_player = st.selectbox("🔍 Select a player", options=players_list, label_visibility="collapsed")
-
-
-# Upload an Image
-uploaded_file = st.file_uploader("📸 Upload Image", type=["png", "jpg", "jpeg"])
-
-# Add Scouting Report Text
-new_report = st.text_area("📝 Add Your Observations", "")
-
-# Submit Button
-submit_button = st.button("✅ Submit Report")
-
-if submit_button:  # Ensures the function is only triggered when button is clicked
-    if selected_player and new_report.strip():  # Ensure input is not empty
-        st.write("🔹 Debug: Submitting the following report")
-        st.write(f"Player: {selected_player}")
-        st.write(f"Report: {new_report}")
-
-        # Function to Submit Report to Google Sheets
-        def submit_report(selected_player, uploaded_file, new_report):
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            image_link = f"Uploaded: {uploaded_file.name}" if uploaded_file else "No Image"
-
-            # Ensure correct data format
-            new_entry = [[timestamp, selected_player, image_link, new_report]]
-
-            st.write("✅ Debug: Data being sent to Google Sheets:", new_entry)  # ✅ Debugging
-
-            try:
-                # Initialize Google Sheets API service
-                sheet = build('sheets', 'v4', credentials=get_credentials()).spreadsheets()
-
-                # Prevent API rate limits
-                time.sleep(2)
-
-                response = sheet.values().append(
-                    spreadsheetId=SPREADSHEET_ID,
-                    range="Reports!A:D",  # Ensure this is the correct sheet tab
-                    valueInputOption="RAW",
-                    insertDataOption="INSERT_ROWS",  # ✅ Forces data into a new row
-                    body={"values": new_entry}
-                ).execute()
-
-                st.success(f"✅ Report for {selected_player} successfully added!")
-                st.write("✅ Debug: Google Sheets API Response:", response)  # ✅ Debugging
-
-            except Exception as e:
-                st.error(f"❌ Google Sheets API Error: {str(e)}")
-
-        # Call the function to send the data
-        submit_report(selected_player, uploaded_file, new_report)
+    for _, row in top_players_df.iterrows():
+        with st.expander(f"🔍 {row['Player']} | {row['Poste']} pour {row['Club']}"):
+            st.write(f"**Player:** {row['Player']}")
+            st.write(f"**Transfermarkt:** {row['Transfermarkt']}")
+            
+            
+            
+            st.write(f"**Position:** {row['Poste']}")
+            st.write(f"**Club:** {row['Club']}")
+            st.write(f"**Contract End:** {row['Fin de contrat']}")
     
-    else:
-        st.error("⚠️ Please select a player and write a report before submitting.")
-
-    # ---- VISUALIZATION ----
-st.subheader("📊 Player Distribution by Position")
-position_counts = filtered_df["Poste"].value_counts().reset_index()
-position_counts.columns = ["Position", "Count"]
-
-fig = px.bar(
-    position_counts, 
-    x="Position", 
-    y="Count", 
-    title="", 
-    text="Count", 
-    color="Position"
-    )
-st.plotly_chart(fig, use_container_width=True)
-
-
+            st.write("### ✍️ Scouting Report:")
+    
+            # Convert NaN to empty string and strip whitespace
+            rapport_value = str(row.get("Rapport", "")).strip()
+    
+            # Display "Rapport"
+            if rapport_value:
+                st.markdown(f"<div style='white-space: pre-wrap;'><strong>📝 Rapport:</strong><br>{rapport_value}</div>", unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ No 'Rapport' available for this player.")
 
