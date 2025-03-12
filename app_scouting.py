@@ -14,21 +14,18 @@ st.set_page_config(layout='wide')
 logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
 col1, col2 = st.columns([9, 1])
 with col1:
-    st.title("Recrutement| FC Versailles")
+    st.title("Recrutement | FC Versailles")
 with col2:
     st.image(logo_url, use_container_width=True)
     
-# Add a horizontal line to separate the header
 st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
-
 
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 TOKEN_FILE = 'token.pickle'
-SPREADSHEET_ID = '1bqVJ5zSBJJsZe_PsH5lzspFKA6P0l3Mfc4jta00Jh9k'  # Replace with actual Google Sheet ID
+SPREADSHEET_ID = '1bqVJ5zSBJJsZe_PsH5lzspFKA6P0l3Mfc4jta00Jh9k'
 DATABASE_RANGE = 'Feuille 1'
 
-# ---- FUNCTION: GET GOOGLE SHEETS CREDENTIALS ----
 def get_credentials():
     creds = None
     if os.path.exists(TOKEN_FILE):
@@ -46,7 +43,6 @@ def get_credentials():
             pickle.dump(creds, token)
     return creds
 
-# ---- FUNCTION: FETCH GOOGLE SHEET DATA ----
 def fetch_google_sheet(spreadsheet_id, range_name):
     creds = get_credentials()
     service = build('sheets', 'v4', credentials=creds)
@@ -60,7 +56,6 @@ def fetch_google_sheet(spreadsheet_id, range_name):
     data = values[1:]
     return pd.DataFrame(data, columns=header)
 
-# ---- FUNCTION: LOAD MAIN DATABASE ----
 @st.cache_data(ttl=60)
 def load_data():
     return fetch_google_sheet(SPREADSHEET_ID, DATABASE_RANGE)
@@ -68,22 +63,17 @@ def load_data():
 df = load_data()
 df = df.loc[:, ~df.columns.duplicated()]
 
-# Convert "Date de naissance" to numeric for age calculation
-if "Date de naissance" in df.columns:
-    df["Date de naissance"] = pd.to_numeric(df["Date de naissance"], errors="coerce")
-    current_year = datetime.datetime.now().year
-    df["Age"] = current_year - df["Date de naissance"]
-else:
-    st.error("⚠️ 'Date de naissance' column missing in database!")
+df['Date de naissance'] = pd.to_numeric(df['Date de naissance'], errors='coerce')
+current_year = datetime.datetime.now().year
+df['Age'] = current_year - df['Date de naissance']
 
-# Sidebar for page selection
 page = st.sidebar.selectbox("Select Page", ["FCV Database", "Statsbomb Data"])
 
 if page == "FCV Database":
-    st.header("📂 Scouting Database")
+    st.markdown('<h1 style="color:#0031E3;margin-bottom: 15px;">📂 Scouting Database</h1>', unsafe_allow_html=True)
 
     # Create Filter Columns
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
     # 🔹 Position Filter
     positions = df['Poste'].dropna().unique().tolist()
@@ -92,6 +82,14 @@ if page == "FCV Database":
     # 🔹 Championship Filter
     championships = df['Championnat'].dropna().unique().tolist()
     selected_championship = col2.multiselect("🏆 Le championnat", options=championships, default=[])
+    
+        # 🔹 Footedness Filter
+    pied_options = df['Pied'].dropna().unique().tolist()
+    selected_pied = col6.multiselect("🦶 Pied", options=pied_options, default=[])
+    
+    # 🔹 Contract End Filter
+    contract_dates = df['Fin de contrat'].dropna().unique().tolist()
+    selected_contract = col7.multiselect("📅 Fin de contrat", options=contract_dates, default=[])
 
     # ✅ **Convert "Submitted at" to Datetime Format**
     df["Submitted at"] = pd.to_datetime(df["Submitted at"], errors="coerce").dt.tz_localize(None)
@@ -142,11 +140,16 @@ if page == "FCV Database":
 
     # 🔹 Apply Filters
     filtered_df = df.copy()
-
     if selected_position:
         filtered_df = filtered_df[filtered_df['Poste'].isin(selected_position)]
     if selected_championship:
         filtered_df = filtered_df[filtered_df['Championnat'].isin(selected_championship)]
+    if selected_pied:
+        filtered_df = filtered_df[filtered_df['Pied'].isin(selected_pied)]
+    if selected_contract:
+        filtered_df = filtered_df[filtered_df['Fin de contrat'].isin(selected_contract)]
+    if search_query:
+        filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
 
     # ✅ **Filter by Submission Date Range**
     filtered_df = filtered_df[
@@ -163,81 +166,89 @@ if page == "FCV Database":
     # ✅ **Filter by Player Name (Case Insensitive)**
     if search_query:
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
-
-
-    # ---- SELECT COLUMNS TO DISPLAY ----
-    columns_to_display = ["Player","Pied", "Poste","Championnat", "Club", "Fin de contrat", "Rapport"]
-    filtered_df = filtered_df[columns_to_display]
-
-    # ---- DISPLAY INTERACTIVE TABLE WITH IMPROVED RAPPORT VISIBILITY ----
-    st.markdown("""
-        <style>
-            .st-emotion-cache-1uixxvy {  /* Custom class for text columns */
-                max-height: 6em !important;
-                overflow: auto !important;
-                white-space: pre-wrap !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
     
-    st.data_editor(
-        filtered_df,
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Rapport": st.column_config.TextColumn(
-                width="large",
-                max_chars=None,
-                help="Rapport détaillé sur le joueur"
-            )
+  
+    
+  
+    # Columns to Display
+    columns_to_display = ["Player", "Pied", "Poste", "Championnat", "Club", "Rapport"]
+    filtered_df = filtered_df[columns_to_display]
+    
+        # Apply CSS for styling
+    st.markdown("""
+    <style>
+        table {
+            width: 100% !important;
+            border-collapse: collapse !important;
         }
-    )
+        th {
+            background-color: #beb245 !important;
+            text-align: center !important; /* Center align header text */
+            padding: 10px !important;
+        }
+        td {
+            text-align: left !important;
+            vertical-align: top !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            padding: 8px !important;
+            border: 1px solid #ddd !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ---- EXPORT TO EXCEL BUTTON ----
+    
+    # Display table without index
+    st.write(filtered_df.head(15).to_html(index=False, escape=False), unsafe_allow_html=True)
+    
+    # Export to Excel
     def convert_df_to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Scouting Data')
-        processed_data = output.getvalue()
-        return processed_data
+        return output.getvalue()
     
     excel_data = convert_df_to_excel(filtered_df)
     st.download_button(
-        label="📂 Download Excel",
+        label="📂 Télécharger la liste",
         data=excel_data,
         file_name="FCV_Scouting_Data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-
-     # ---- ADD EXPANDABLE "VIEW REPORT" FOR EACH PLAYER ----
+    
+    # Display Reports
     st.subheader("📄 Rapport sur les joueurs")
-    
-    # Select the first 5 players from the filtered dataframe
-    top_players_df = df.loc[filtered_df.index[:5], ["Player","Transfermarkt","Pied", "Taille", "Poste","Championnat", "Club", "Fin de contrat", "Rapport"]]
-    
-    # Debugging: Check if "Rapport" and "Comment" exist
-    
-    
+    top_players_df = filtered_df.head(5)
     for _, row in top_players_df.iterrows():
         with st.expander(f"🔍 {row['Player']} | {row['Poste']} pour {row['Club']}"):
-            st.write(f"**Player:** {row['Player']}")
-            st.write(f"**Transfermarkt:** {row['Transfermarkt']}")
-            
-            
-            
             st.write(f"**Position:** {row['Poste']}")
             st.write(f"**Club:** {row['Club']}")
-            st.write(f"**Contract End:** {row['Fin de contrat']}")
-    
             st.write("### ✍️ Scouting Report:")
-    
-            # Convert NaN to empty string and strip whitespace
             rapport_value = str(row.get("Rapport", "")).strip()
-    
-            # Display "Rapport"
             if rapport_value:
                 st.markdown(f"<div style='white-space: pre-wrap;'><strong>📝 Rapport:</strong><br>{rapport_value}</div>", unsafe_allow_html=True)
             else:
                 st.warning("⚠️ No 'Rapport' available for this player.")
 
+
+
+st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+
+st.markdown("""
+    <style>
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f8f9fa;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+    <div class="footer">
+        <p><strong>M.Feigean</strong> - Football Development</p>
+    </div>
+    """, unsafe_allow_html=True)
