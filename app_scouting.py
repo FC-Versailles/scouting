@@ -315,22 +315,21 @@ elif page == "Chercher Joueurs":
     default_player = params.get("player", "")
 
     search_input = st.text_input("🔎 Nom du joueur", value=default_player)
-    
+
+    # ✅ Mettre à jour dynamiquement l'URL
     if search_input:
         st.query_params.update({"page": "Chercher Joueurs", "player": search_input})
     else:
         st.query_params.update({"page": "Chercher Joueurs"})
 
-
     matched_players = df[df['Player'].str.contains(search_input, case=False, na=False)] if search_input else pd.DataFrame()
-
 
     if not matched_players.empty:
         for _, player_data in matched_players.iterrows():
             st.markdown(f"<h3 style='color:#444;'>📋 Rapport pour {player_data['Player']}</h3>", unsafe_allow_html=True)
-    
+
             col1, col2 = st.columns(2)
-    
+
             with col1:
                 st.markdown(f"**Prénom :** {player_data.get('Prénom', '')}")
                 st.markdown(f"**Âge :** {player_data.get('Age', '')}")
@@ -339,7 +338,7 @@ elif page == "Chercher Joueurs":
                 st.markdown(f"**Poste :** {player_data.get('Poste', '')}")
                 st.markdown(f"**Profil :** {player_data.get('Profil', '')}")
                 st.markdown(f"**Type de joueur :** {player_data.get('Type de joueur', '')}")
-    
+
             with col2:
                 st.markdown(f"**Soumis le :** {player_data.get('Submitted at', '')}")
                 st.markdown(f"**Date de naissance :** {player_data.get('Date de naissance', '')}")
@@ -348,23 +347,19 @@ elif page == "Chercher Joueurs":
                 st.markdown(f"**Fin de contrat :** {player_data.get('Fin de contrat', '')}")
                 st.markdown(f"**Transfermarkt :** {player_data.get('Transfermarkt', '')}")
                 st.markdown(f"**Potential :** {player_data.get('Potential', '')}")
-      
-    
-    
+
             rapport = str(player_data.get("Rapport", "")).strip()
             if rapport:
-                st.subheader("📝 Commmentaire du scout")
+                st.subheader("📝 Commentaire du scout")
                 st.markdown(f"<div style='white-space: pre-wrap;'>{rapport}</div>", unsafe_allow_html=True)
             else:
                 st.warning("Aucun rapport disponible pour ce joueur.")
-                
-                        # 🔹 Radar Plot – Physical Skills
+
+            # 🔹 Radar Plot – Physical Skills
             phys_fields = ["Physiquement fort", "Intensité des courses", "Volume des courses"]
-            
-            # Vérifie que les champs existent et sont valides
+
             if all(field in player_data and str(player_data[field]).strip() not in ["", "NA", "N/A"] for field in phys_fields):
                 try:
-                    # Convertir en float
                     values = []
                     for field in phys_fields:
                         val = player_data.get(field, "")
@@ -374,39 +369,42 @@ elif page == "Chercher Joueurs":
                             st.warning(f"⚠️ La donnée '{val}' pour « {field} » n'est pas exploitable.")
                             values = []
                             break
-                        if values:
-                            fig = go.Figure()
-                            fig.add_trace(go.Scatterpolar(
-                                r=values,
-                                theta=phys_fields,
-                                fill='toself',
-                                name='Physical Skills',
-                                marker=dict(color='rgba(0, 48, 135, 0.7)')
-                            ))
-                            fig.update_layout(
-                                polar=dict(
-                                    radialaxis=dict(
-                                        visible=True,
-                                        range=[0, 5],
-                                        tickvals=[0, 1, 2, 3, 4, 5],
-                                        ticktext=["0", "1", "2", "3", "4", "5"]
-                                    )
-                                ),
-                                showlegend=False,
-                                title="📊 Physical Skills"
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-            
 
-                except ValueError:
-                    st.info("⚠️ Certaines valeurs physiques ne sont pas exploitables pour générer le graphique.")
+                    # ✅ Affiche le radar si toutes les valeurs sont valides
+                    if values:
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatterpolar(
+                            r=values,
+                            theta=phys_fields,
+                            fill='toself',
+                            name='Physical Skills',
+                            marker=dict(color='rgba(0, 48, 135, 0.7)')
+                        ))
+                        fig.update_layout(
+                            polar=dict(
+                                radialaxis=dict(
+                                    visible=True,
+                                    range=[0, 5],
+                                    tickvals=[0, 1, 2, 3, 4, 5],
+                                    ticktext=["0", "1", "2", "3", "4", "5"]
+                                )
+                            ),
+                            showlegend=False,
+                            title="📊 Physical Skills"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                except Exception as e:
+                    st.info("⚠️ Erreur dans la génération du radar.")
+                    st.write(e)
             else:
                 st.info("⚠️ Données physiques insuffisantes pour afficher le graphique radar.")
 
-    
             st.markdown("---")
+
     elif search_input:
         st.info("Aucun joueur trouvé avec ce nom.")
+
     
      
 st.markdown("""
