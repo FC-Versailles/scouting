@@ -312,10 +312,15 @@ elif page == "Chercher Joueurs":
     st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">🔎 Chercher un Joueur</h2>', unsafe_allow_html=True)
 
     params = st.query_params
-    default_player = params.get("player", [""])[0]
-
+    default_player = params.get("player", "")
 
     search_input = st.text_input("🔎 Nom du joueur", value=default_player)
+    
+    if search_input:
+        st.query_params.update({"page": "Chercher Joueurs", "player": search_input})
+    else:
+        st.query_params.update({"page": "Chercher Joueurs"})
+
 
     matched_players = df[df['Player'].str.contains(search_input, case=False, na=False)] if search_input else pd.DataFrame()
 
