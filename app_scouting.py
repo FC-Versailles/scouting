@@ -7,6 +7,8 @@ from io import BytesIO
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+import plotly.graph_objects as go
+from urllib.parse import quote
 
 st.set_page_config(layout='wide')
 
@@ -67,7 +69,13 @@ df['Date de naissance'] = pd.to_numeric(df['Date de naissance'], errors='coerce'
 current_year = datetime.datetime.now().year
 df['Age'] = current_year - df['Date de naissance']
 
-page = st.sidebar.selectbox("Select Page", ["FCV Database", "Statsbomb Data"])
+params = st.query_params
+default_page = params.get("page", "FCV Database")
+PAGES = ["FCV Database", "Chercher Joueurs", "Statsbomb Data"]
+page = st.sidebar.selectbox("Select Page", PAGES, index=PAGES.index(default_page))
+
+
+
 
 if page == "FCV Database":
     st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">📂 Scouting Database</h2>', unsafe_allow_html=True)
@@ -188,9 +196,6 @@ if page == "FCV Database":
         ]
     
 
-
-
-
     # ✅ **Filter by Submission Date Range**
     filtered_df = filtered_df[
         (filtered_df["Submitted at"] >= selected_start_date) & 
@@ -208,6 +213,7 @@ if page == "FCV Database":
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
     
   
+    full_filtered_df = filtered_df.copy() 
     # Columns to Display
     columns_to_display = ["Prénom","Player", "Date de naissance","Pied","Taille", "Poste", "Championnat", "Club", "Fin de contrat","Profil","Type de joueur","Potential"]
     filtered_df = filtered_df[columns_to_display]
@@ -254,24 +260,147 @@ if page == "FCV Database":
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     
-    # Display Reports
-    st.subheader("📄 Rapport sur les joueurs")
-    top_players_df = filtered_df.head(5)
-    for _, row in top_players_df.iterrows():
-        with st.expander(f"🔍 {row['Player']} | {row['Poste']} pour {row['Club']}"):
-            st.write(f"**Position:** {row['Poste']}")
-            st.write(f"**Club:** {row['Club']}")
-            st.write("### ✍️ Scouting Report:")
-            rapport_value = str(row.get("Rapport", "")).strip()
-            if rapport_value:
-                st.markdown(f"<div style='white-space: pre-wrap;'><strong>📝 Rapport:</strong><br>{rapport_value}</div>", unsafe_allow_html=True)
+    # Display Reports (détaillés pour les 5 premiers joueurs filtrés)
+    st.subheader("📄 Liste des joueurs")
+    
+    top_players_df = full_filtered_df.head(10)
+    for _, player_data in top_players_df.iterrows():
+        player_name = player_data['Player']
+        link = f"[📎 Voir la fiche complète](/?page=Chercher%20Joueurs&player={player_name})"
+        encoded_name = quote(player_name)
+        st.markdown(f"""
+        <h3 style='color:#444;'>📋 Rapport pour {player_name}</h3>
+        <a href='/?page=Chercher%20Joueurs&player={encoded_name}' style='text-decoration:none;'>
+            <button style='background-color:#0043a4; color:white; padding:6px 12px; border:none; border-radius:5px;'>
+                📎 Voir la fiche complète
+            </button>
+        </a>
+        """, unsafe_allow_html=True)
+    
+        col1, col2 = st.columns(2)
+    
+        with col1:
+            st.markdown(f"**Prénom :** {player_data.get('Prénom', '')}")
+            st.markdown(f"**Âge :** {player_data.get('Age', '')}")
+            st.markdown(f"**Taille :** {player_data.get('Taille', '')}")
+            st.markdown(f"**Pied :** {player_data.get('Pied', '')}")
+            st.markdown(f"**Poste :** {player_data.get('Poste', '')}")
+            st.markdown(f"**Profil :** {player_data.get('Profil', '')}")
+            st.markdown(f"**Type de joueur :** {player_data.get('Type de joueur', '')}")
+    
+        with col2:
+            st.markdown(f"**Soumis le :** {player_data.get('Submitted at', '')}")
+            st.markdown(f"**Date de naissance :** {player_data.get('Date de naissance', '')}")
+            st.markdown(f"**Club :** {player_data.get('Club', '')}")
+            st.markdown(f"**Championnat :** {player_data.get('Championnat', '')}")
+            st.markdown(f"**Fin de contrat :** {player_data.get('Fin de contrat', '')}")
+            st.markdown(f"**Transfermarkt :** {player_data.get('Transfermarkt', '')}")
+            st.markdown(f"**Potential :** {player_data.get('Potential', '')}")
+    
+        rapport = str(player_data.get("Rapport", "")).strip()
+        if rapport:
+            st.subheader("📝 Commentaire du scout")
+            st.markdown(f"<div style='white-space: pre-wrap;'>{rapport}</div>", unsafe_allow_html=True)
+        else:
+            st.warning("Aucun rapport disponible pour ce joueur.")
+    
+
+        st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+    
+    
+elif page == "Chercher Joueurs":
+    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">🔎 Chercher un Joueur</h2>', unsafe_allow_html=True)
+
+    params = st.query_params
+    default_player = params.get("player", [""])[0]
+
+
+    search_input = st.text_input("🔎 Nom du joueur", value=default_player)
+
+    matched_players = df[df['Player'].str.contains(search_input, case=False, na=False)] if search_input else pd.DataFrame()
+
+
+    if not matched_players.empty:
+        for _, player_data in matched_players.iterrows():
+            st.markdown(f"<h3 style='color:#444;'>📋 Rapport pour {player_data['Player']}</h3>", unsafe_allow_html=True)
+    
+            col1, col2 = st.columns(2)
+    
+            with col1:
+                st.markdown(f"**Prénom :** {player_data.get('Prénom', '')}")
+                st.markdown(f"**Âge :** {player_data.get('Age', '')}")
+                st.markdown(f"**Taille :** {player_data.get('Taille', '')}")
+                st.markdown(f"**Pied :** {player_data.get('Pied', '')}")
+                st.markdown(f"**Poste :** {player_data.get('Poste', '')}")
+                st.markdown(f"**Profil :** {player_data.get('Profil', '')}")
+                st.markdown(f"**Type de joueur :** {player_data.get('Type de joueur', '')}")
+    
+            with col2:
+                st.markdown(f"**Soumis le :** {player_data.get('Submitted at', '')}")
+                st.markdown(f"**Date de naissance :** {player_data.get('Date de naissance', '')}")
+                st.markdown(f"**Club :** {player_data.get('Club', '')}")
+                st.markdown(f"**Championnat :** {player_data.get('Championnat', '')}")
+                st.markdown(f"**Fin de contrat :** {player_data.get('Fin de contrat', '')}")
+                st.markdown(f"**Transfermarkt :** {player_data.get('Transfermarkt', '')}")
+                st.markdown(f"**Potential :** {player_data.get('Potential', '')}")
+      
+    
+    
+            rapport = str(player_data.get("Rapport", "")).strip()
+            if rapport:
+                st.subheader("📝 Commmentaire du scout")
+                st.markdown(f"<div style='white-space: pre-wrap;'>{rapport}</div>", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ No 'Rapport' available for this player.")
+                st.warning("Aucun rapport disponible pour ce joueur.")
+                
+                        # 🔹 Radar Plot – Physical Skills
+            phys_fields = ["Physiquement fort", "Intensité des courses", "Volume des courses"]
+            
+            # Vérifie que les champs existent et sont valides
+            if all(field in player_data and str(player_data[field]).strip() not in ["", "NA", "N/A"] for field in phys_fields):
+                try:
+                    # Convertir en float
+                    values = [float(player_data[field]) for field in phys_fields]
+            
+                    # Créer le radar Plotly
+                    fig = go.Figure()
+            
+                    fig.add_trace(go.Scatterpolar(
+                        r=values,
+                        theta=phys_fields,
+                        fill='toself',
+                        name='Physical Skills',
+                        marker=dict(color='rgba(0, 48, 135, 0.7)')
+                    ))
+                    
+                    fig.update_layout(
+                        polar=dict(
+                            radialaxis=dict(
+                                visible=True,
+                                range=[0, 5],
+                                tickfont_size=12,
+                                tickvals=[0,1, 2, 3, 4, 5],
+                                ticktext=["0","1", "2", "3", "4", "5"]
+                            )
+                        ),
+                        showlegend=False,
+                        title="📊 Physical Skills"
+                    )
 
+        
+                    st.plotly_chart(fig, use_container_width=True)
+            
+                except ValueError:
+                    st.info("⚠️ Certaines valeurs physiques ne sont pas exploitables pour générer le graphique.")
+            else:
+                st.info("⚠️ Données physiques insuffisantes pour afficher le graphique radar.")
 
-
-st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
-
+    
+            st.markdown("---")
+    elif search_input:
+        st.info("Aucun joueur trouvé avec ce nom.")
+    
+     
 st.markdown("""
     <style>
         .footer {
@@ -290,3 +419,4 @@ st.markdown("""
         <p><strong>M.Feigean</strong> - Football Development</p>
     </div>
     """, unsafe_allow_html=True)
+    
