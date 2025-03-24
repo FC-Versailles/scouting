@@ -365,36 +365,39 @@ elif page == "Chercher Joueurs":
             if all(field in player_data and str(player_data[field]).strip() not in ["", "NA", "N/A"] for field in phys_fields):
                 try:
                     # Convertir en float
-                    values = [float(player_data[field]) for field in phys_fields]
-            
-                    # Créer le radar Plotly
-                    fig = go.Figure()
-            
-                    fig.add_trace(go.Scatterpolar(
-                        r=values,
-                        theta=phys_fields,
-                        fill='toself',
-                        name='Physical Skills',
-                        marker=dict(color='rgba(0, 48, 135, 0.7)')
-                    ))
-                    
-                    fig.update_layout(
-                        polar=dict(
-                            radialaxis=dict(
-                                visible=True,
-                                range=[0, 5],
-                                tickfont_size=12,
-                                tickvals=[0,1, 2, 3, 4, 5],
-                                ticktext=["0","1", "2", "3", "4", "5"]
+                    values = []
+                    for field in phys_fields:
+                        val = player_data.get(field, "")
+                        try:
+                            values.append(float(val))
+                        except (ValueError, TypeError):
+                            st.warning(f"⚠️ La donnée '{val}' pour « {field} » n'est pas exploitable.")
+                            values = []
+                            break
+                        if values:
+                            fig = go.Figure()
+                            fig.add_trace(go.Scatterpolar(
+                                r=values,
+                                theta=phys_fields,
+                                fill='toself',
+                                name='Physical Skills',
+                                marker=dict(color='rgba(0, 48, 135, 0.7)')
+                            ))
+                            fig.update_layout(
+                                polar=dict(
+                                    radialaxis=dict(
+                                        visible=True,
+                                        range=[0, 5],
+                                        tickvals=[0, 1, 2, 3, 4, 5],
+                                        ticktext=["0", "1", "2", "3", "4", "5"]
+                                    )
+                                ),
+                                showlegend=False,
+                                title="📊 Physical Skills"
                             )
-                        ),
-                        showlegend=False,
-                        title="📊 Physical Skills"
-                    )
-
-        
-                    st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True)
             
+
                 except ValueError:
                     st.info("⚠️ Certaines valeurs physiques ne sont pas exploitables pour générer le graphique.")
             else:
