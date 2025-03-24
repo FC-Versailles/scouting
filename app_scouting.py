@@ -70,26 +70,30 @@ df['Age'] = current_year - df['Date de naissance']
 page = st.sidebar.selectbox("Select Page", ["FCV Database", "Statsbomb Data"])
 
 if page == "FCV Database":
-    st.markdown('<h1 style="color:#0031E3;margin-bottom: 15px;">📂 Scouting Database</h1>', unsafe_allow_html=True)
+    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">📂 Scouting Database</h2>', unsafe_allow_html=True)
+
 
     # Create Filter Columns
-    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    f1_col1, f1_col2, f1_col3, f1_col4, f1_col5 = st.columns(5)
+    f2_col1, f2_col2, f2_col3, f2_col4, f2_col5 = st.columns(5)
 
     # 🔹 Position Filter
-    positions = df['Poste'].dropna().unique().tolist()
-    selected_position = col1.multiselect("🔍 Le poste", options=positions, default=[])
+    positions = ["AILL", "ATT", "DC", "DD", "DG", "GB", "MC", "MO"]
+    selected_position = f1_col1.multiselect("🔍 Le poste", options=positions, default=[])
 
     # 🔹 Championship Filter
     championships = df['Championnat'].dropna().unique().tolist()
-    selected_championship = col2.multiselect("🏆 Le championnat", options=championships, default=[])
+    selected_championship = f1_col2.multiselect("🏆 Le championnat", options=championships, default=[])
     
-        # 🔹 Footedness Filter
+    
+    # 🔹 Footedness Filter
     pied_options = df['Pied'].dropna().unique().tolist()
-    selected_pied = col6.multiselect("🦶 Pied", options=pied_options, default=[])
+    selected_pied = f1_col3.multiselect("🦶 Pied", options=pied_options, default=[])
     
     # 🔹 Contract End Filter
     contract_dates = df['Fin de contrat'].dropna().unique().tolist()
-    selected_contract = col7.multiselect("📅 Fin de contrat", options=contract_dates, default=[])
+    selected_contract = f1_col4.multiselect("📅 Fin de contrat", options=contract_dates, default=[])
+    
 
     # ✅ **Convert "Submitted at" to Datetime Format**
     df["Submitted at"] = pd.to_datetime(df["Submitted at"], errors="coerce").dt.tz_localize(None)
@@ -104,7 +108,7 @@ if page == "FCV Database":
 
 
     # ✅ Submission Date Slider (Use datetime.date() to fix TypeError)
-    selected_start_date, selected_end_date = col5.slider(
+    selected_start_date, selected_end_date = f1_col5.slider(
         "📆 Date d'ajout",
         min_value=min_date.date(),
         max_value=max_date.date(),
@@ -128,7 +132,7 @@ if page == "FCV Database":
         min_birth_year, max_birth_year = 1980, datetime.datetime.now().year
 
     # ✅ Birth Year Slider
-    selected_birth_year = col3.slider(
+    selected_birth_year = f2_col1.slider(
         "📅 Date de Naissance",
         min_birth_year,
         max_birth_year,
@@ -136,12 +140,34 @@ if page == "FCV Database":
     )
 
     # 🔹 Player Search Box
-    search_query = col4.text_input("🔎 Recherche joueur", "")
+    search_query = f2_col5.text_input("🔎 Recherche joueur", "")
+    
+        # 🔹 Type de joueur Filter
+    type_options = df['Type de joueur'].dropna().unique().tolist()
+    selected_type = f2_col3.multiselect("🎯 Type de joueur", options=type_options, default=[])
+    
+    # 🔹 Potential Filter
+    potential_options = df['Potential'].dropna().unique().tolist()
+    selected_potential = f2_col4.multiselect("💎 Potential", options=potential_options, default=[])
+    
+        # 🔹 Profil Filter
+    profil_options = [
+    "Initiateur", "Agresseur", "Facilitateur", "Défensif", "Progresseur", "Overlapper", "Directeur",
+    "Linebreaker", "Recuperateur", "Createur", "Catalyseur", "Box-to-box", "Explorateur",
+    "Détonateur", "Libérateur", "Box Killer", "Mobile finisher", "Target man"]
+    selected_profil = f2_col2.multiselect("🧬 Profil", options=profil_options, default=[])
+
+
 
     # 🔹 Apply Filters
     filtered_df = df.copy()
     if selected_position:
-        filtered_df = filtered_df[filtered_df['Poste'].isin(selected_position)]
+        filtered_df = filtered_df[
+            filtered_df['Poste'].apply(
+                lambda postes: any(pos in postes for pos in selected_position) if isinstance(postes, str) else False
+            )
+        ]
+
     if selected_championship:
         filtered_df = filtered_df[filtered_df['Championnat'].isin(selected_championship)]
     if selected_pied:
@@ -150,6 +176,20 @@ if page == "FCV Database":
         filtered_df = filtered_df[filtered_df['Fin de contrat'].isin(selected_contract)]
     if search_query:
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
+    if selected_type:
+        filtered_df = filtered_df[filtered_df['Type de joueur'].isin(selected_type)]
+    if selected_potential:
+        filtered_df = filtered_df[filtered_df['Potential'].isin(selected_potential)]
+    if selected_profil:
+        filtered_df = filtered_df[
+            filtered_df['Profil'].apply(
+                lambda profils: any(p in profils for p in selected_profil) if isinstance(profils, str) else False
+            )
+        ]
+    
+
+
+
 
     # ✅ **Filter by Submission Date Range**
     filtered_df = filtered_df[
@@ -168,10 +208,8 @@ if page == "FCV Database":
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
     
   
-    
-  
     # Columns to Display
-    columns_to_display = ["Player", "Pied", "Poste", "Championnat", "Club", "Rapport"]
+    columns_to_display = ["Prénom","Player", "Date de naissance","Pied","Taille", "Poste", "Championnat", "Club", "Fin de contrat","Profil","Type de joueur","Potential"]
     filtered_df = filtered_df[columns_to_display]
     
         # Apply CSS for styling
@@ -187,7 +225,7 @@ if page == "FCV Database":
             padding: 10px !important;
         }
         td {
-            text-align: left !important;
+            text-align: center !important;
             vertical-align: top !important;
             white-space: pre-wrap !important;
             word-wrap: break-word !important;
@@ -199,7 +237,7 @@ if page == "FCV Database":
 
     
     # Display table without index
-    st.write(filtered_df.head(15).to_html(index=False, escape=False), unsafe_allow_html=True)
+    st.write(filtered_df.head(500).to_html(index=False, escape=False), unsafe_allow_html=True)
     
     # Export to Excel
     def convert_df_to_excel(df):
