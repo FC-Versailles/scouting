@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as patheffects
 import plotly.express as px
 import seaborn as sns
-
+import base64
 
 st.set_page_config(layout='wide')
 
@@ -377,15 +377,12 @@ if page == "FCV Database":
         st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
     
     
-elif page == "Chercher Joueurs":
-    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">🔎 Chercher un Joueur</h2>', unsafe_allow_html=True)
+if page == "Chercher Joueurs":
+    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">\U0001F50E Chercher un Joueur</h2>', unsafe_allow_html=True)
 
-    params = st.query_params
     default_player = params.get("player", "")
+    search_input = st.text_input("\U0001F50E Nom du joueur", value=default_player)
 
-    search_input = st.text_input("🔎 Nom du joueur", value=default_player)
-
-    # ✅ Mettre à jour dynamiquement l'URL
     if search_input:
         st.query_params.update({"page": "Chercher Joueurs", "player": search_input})
     else:
@@ -395,59 +392,42 @@ elif page == "Chercher Joueurs":
 
     if not matched_players.empty:
         for _, player_data in matched_players.iterrows():
-            st.markdown(f"<h3 style='color:#444;'>📋 Rapport pour {player_data['Player']}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color:#444;'>\U0001F4CB Rapport pour {player_data['Player']}</h3>", unsafe_allow_html=True)
 
             col1, col2 = st.columns(2)
-
             with col1:
-                st.markdown(f"**Prénom :** {player_data.get('Prénom', '')}")
-                st.markdown(f"**Âge :** {player_data.get('Age', '')}")
-                st.markdown(f"**Taille :** {player_data.get('Taille', '')}")
-                st.markdown(f"**Pied :** {player_data.get('Pied', '')}")
-                st.markdown(f"**Poste :** {player_data.get('Poste', '')}")
-                st.markdown(f"**Profil :** {player_data.get('Profil', '')}")
-                st.markdown(f"**Type de joueur :** {player_data.get('Type de joueur', '')}")
-
+                for field in ["Prénom", "Âge", "Taille", "Pied", "Poste", "Profil", "Type de joueur"]:
+                    st.markdown(f"**{field} :** {player_data.get(field, '')}")
             with col2:
-                st.markdown(f"**Soumis le :** {player_data.get('Submitted at', '')}")
-                st.markdown(f"**Date de naissance :** {player_data.get('Date de naissance', '')}")
-                st.markdown(f"**Club :** {player_data.get('Club', '')}")
-                st.markdown(f"**Championnat :** {player_data.get('Championnat', '')}")
-                st.markdown(f"**Fin de contrat :** {player_data.get('Fin de contrat', '')}")
-                st.markdown(f"**Transfermarkt :** {player_data.get('Transfermarkt', '')}")
-                st.markdown(f"**Potential :** {player_data.get('Potential', '')}")
+                for field in ["Submitted at", "Date de naissance", "Club", "Championnat", "Fin de contrat", "Transfermarkt", "Potential"]:
+                    st.markdown(f"**{field} :** {player_data.get(field, '')}")
 
             rapport = str(player_data.get("Rapport", "")).strip()
             if rapport:
-                st.subheader("📝 Commentaire du scout")
+                st.subheader("\U0001F4DD Commentaire du scout")
                 st.markdown(f"<div style='white-space: pre-wrap;'>{rapport}</div>", unsafe_allow_html=True)
             else:
                 st.warning("Aucun rapport disponible pour ce joueur.")
 
-            # 🔹 Radar Plot – Physical Skills
-            phys_fields = ["Physiquement fort", "Intensité des courses", "Volume des courses"]
+            radar_sets = [
+                ("\U0001F4CA Physical Skills", ["Physiquement fort", "Intensité des courses", "Volume des courses"], 'rgba(0, 48, 135, 0.7)'),
+                ("\U0001F3AF Contribution au jeu", ["Conserver ", "Progresser", "Créer du danger", "Contribuer"], 'rgba(255, 111, 0, 0.7)'),
+                ("\U0001F6E1\ufe0f Défensive", ["Implication défensive", "Duels et interceptions", "Chasseur", "Jeu de tête"], 'rgba(0, 135, 91, 0.7)')
+            ]
 
-            if all(field in player_data and str(player_data[field]).strip() not in ["", "NA", "N/A"] for field in phys_fields):
-                try:
-                    values = []
-                    for field in phys_fields:
-                        val = player_data.get(field, "")
-                        try:
-                            values.append(float(val))
-                        except (ValueError, TypeError):
-                            st.warning(f"⚠️ La donnée '{val}' pour « {field} » n'est pas exploitable.")
-                            values = []
-                            break
+            radar_col1, radar_col2, radar_col3 = st.columns(3)
 
-                    # ✅ Affiche le radar si toutes les valeurs sont valides
-                    if values:
+            for radar_title, fields, color in radar_sets:
+                if all(field in player_data and str(player_data[field]).strip() not in ["", "NA", "N/A"] for field in fields):
+                    try:
+                        values = [float(player_data[field]) for field in fields]
                         fig = go.Figure()
                         fig.add_trace(go.Scatterpolar(
                             r=values,
-                            theta=phys_fields,
+                            theta=fields,
                             fill='toself',
-                            name='Physical Skills',
-                            marker=dict(color='rgba(0, 48, 135, 0.7)')
+                            name=radar_title,
+                            marker=dict(color=color)
                         ))
                         fig.update_layout(
                             polar=dict(
@@ -459,21 +439,103 @@ elif page == "Chercher Joueurs":
                                 )
                             ),
                             showlegend=False,
-                            title="📊 Physical Skills"
+                            title=radar_title
                         )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                except Exception as e:
-                    st.info("⚠️ Erreur dans la génération du radar.")
-                    st.write(e)
-            else:
-                st.info("⚠️ Données physiques insuffisantes pour afficher le graphique radar.")
+                        if radar_title == "\U0001F4CA Physical Skills":
+                            radar_col1.plotly_chart(fig, use_container_width=True)
+                        elif radar_title == "\U0001F3AF Contribution au jeu":
+                            radar_col2.plotly_chart(fig, use_container_width=True)
+                        else:
+                            radar_col3.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.info("⚠️ Erreur dans la génération du radar.")
+                        st.write(e)
+                else:
+                    st.info(f"⚠️ Données insuffisantes pour afficher le graphique : {radar_title}")
 
             st.markdown("---")
 
     elif search_input:
         st.info("Aucun joueur trouvé avec ce nom.")
 
+# ================== PDF MANAGEMENT ==================
+
+    st.markdown("#### 💬 Actualisation du rapport")
+    
+    COMMENT_DIR = "comments_storage"
+    os.makedirs(COMMENT_DIR, exist_ok=True)
+    
+    # 1. Ajouter un commentaire
+    with st.form("add_comment_form"):
+        new_comment = st.text_area("✍️ Ajouter un commentaire")
+        submitted = st.form_submit_button("💾 Enregistrer le commentaire")
+        if submitted and new_comment.strip() != "":
+            comment_id = str(uuid.uuid4())[:8]
+            filename = f"{comment_id}.txt"
+            with open(os.path.join(COMMENT_DIR, filename), "w", encoding="utf-8") as f:
+                f.write(new_comment)
+            st.success("✅ Commentaire ajouté.")
+            st.rerun()
+    
+    # 2. Lister tous les commentaires
+    comment_files = sorted(os.listdir(COMMENT_DIR))
+    
+    if not comment_files:
+        st.info("Aucun commentaire enregistré.")
+    else:
+        for file in comment_files:
+            file_path = os.path.join(COMMENT_DIR, file)
+            with open(file_path, "r", encoding="utf-8") as f:
+                comment_text = f.read()
+    
+            with st.expander("💬 Commentaire", expanded=False):
+                st.markdown(f"<div style='white-space: pre-wrap;'>{comment_text}</div>", unsafe_allow_html=True)
+    
+                if st.button(f"🗑 Supprimer", key=file):
+                    os.remove(file_path)
+                    st.warning(f"❌ Commentaire supprimé.")
+                    st.rerun()
+    
+    st.markdown("---")
+
+
+    st.markdown("#### 📂 Documents")
+    
+    PDF_DIR = "pdf_storage"
+    os.makedirs(PDF_DIR, exist_ok=True)
+    
+    # 1. Upload PDF
+    uploaded_file = st.file_uploader("Uploader un rapport PDF", type=["pdf"])
+    if uploaded_file is not None:
+        save_path = os.path.join(PDF_DIR, uploaded_file.name)
+        with open(save_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        st.success(f"✅ Fichier {uploaded_file.name} ajouté avec succès.")
+        st.rerun()
+
+    
+    # 2. Lister les fichiers déjà présents
+    pdf_files = [f for f in os.listdir(PDF_DIR) if f.endswith(".pdf")]
+    
+    if not pdf_files:
+        st.info("Aucun PDF disponible.")
+    else:
+        for pdf_file in pdf_files:
+            file_path = os.path.join(PDF_DIR, pdf_file)
+    
+            with st.expander(f"📄 {pdf_file}", expanded=False):
+                # Prévisualisation du PDF intégré
+                with open(file_path, "rb") as f:
+                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" type="application/pdf"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)
+    
+                # Bouton de suppression
+                if st.button(f"🗑 Supprimer {pdf_file}", key=pdf_file):
+                    os.remove(file_path)
+                    st.warning(f"❌ {pdf_file} supprimé.")
+                    st.rerun()
+    
 
 elif page == "Statsbomb":
     st.title("Statsbomb")
