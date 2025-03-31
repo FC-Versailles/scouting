@@ -9,6 +9,13 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import plotly.graph_objects as go
 from urllib.parse import quote
+from statsbombpy import sb
+import requests_cache
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as patheffects
+import plotly.express as px
+import seaborn as sns
+
 
 st.set_page_config(layout='wide')
 
@@ -21,6 +28,64 @@ with col2:
     st.image(logo_url, use_container_width=True)
     
 st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+
+# ---- Statsbomb ----
+
+
+DEFAULT_CREDS = {
+    "user": "mathieu.feigean@fcversailles.com",
+    "passwd": "uVBxDK5X",
+}
+
+# Looking at all competitions to search for comp and season id
+comp = sb.competitions(creds = DEFAULT_CREDS)
+
+# Disable caching to avoid SQLite errors
+sb.CACHE_ENABLED = False  
+session = requests_cache.CachedSession(backend="memory")
+
+df1 = sb.player_season_stats(competition_id=129, season_id=317,creds = DEFAULT_CREDS)
+df2 = sb.player_season_stats(competition_id=7, season_id=317,creds = DEFAULT_CREDS)
+df3 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
+
+data = pd.concat([df1, df2,df3], ignore_index=True)
+
+data = data.drop(columns=[
+    'account_id', 'player_id', 'team_id', 'competition_id', 'season_id', 
+    'country_id', 'player_female', 'player_first_name', 'player_last_name', 'player_known_name'
+])
+
+
+# Remove the "player_season_" prefix from applicable column names
+updated_columns = {col: col.replace("player_season_", "") for col in data.columns if col.startswith("player_season_")}
+data.rename(columns=updated_columns, inplace=True)
+
+data = data.dropna(axis=1, how='all')
+
+data['birth_date1'] = pd.to_datetime(data['birth_date'], errors='coerce').dt.year
+data['birth_date1'] = data['birth_date1'].astype(float).astype('Int64')
+
+# Create age column
+current_year = datetime.datetime.now().year  # Use full module reference
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+data['age'] = current_year - data['birth_date1']
+data = data.drop(columns=['birth_date1'])
+
+column_order = (
+    ['player_name', 'primary_position', 'secondary_position', 
+     'team_name', 'competition_name','season_name', 
+     'birth_date','age', 'player_weight', 
+     'player_height', 'minutes', 'starting_appearances', 'appearances', 'average_minutes', 'most_recent_match', '90s_played'] + 
+    [col for col in data.columns if col not in [
+    'player_name', 'primary_position', 'secondary_position', 
+    'team_name', 'competition_name','season_name',
+    'birth_date','age', 'player_weight', 
+    'player_height', 'minutes', 'starting_appearances', 'appearances', 'average_minutes', 'most_recent_match', '90s_played']]
+)
+
+data = data[column_order]
+
+
 
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -71,11 +136,10 @@ df['Age'] = current_year - df['Date de naissance']
 
 params = st.query_params
 default_page = params.get("page", "FCV Database")
-PAGES = ["FCV Database", "Chercher Joueurs", "Statsbomb Data"]
+PAGES = ["FCV Database", "Chercher Joueurs", "Statsbomb"]
 page = st.sidebar.selectbox("Select Page", PAGES, index=PAGES.index(default_page))
 
-
-
+#####################################################################################################################
 
 if page == "FCV Database":
     st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">📂 Scouting Database</h2>', unsafe_allow_html=True)
@@ -405,8 +469,220 @@ elif page == "Chercher Joueurs":
     elif search_input:
         st.info("Aucun joueur trouvé avec ce nom.")
 
+
+elif page == "Statsbomb":
+    st.title("Statsbomb")
+
+    def plot_scatter(df, players, x_col, y_col, x_label, y_label, title):
+        x_median = df[x_col].median()
+        y_median = df[y_col].median()
     
-     
+        # Séparer joueurs sélectionnés et non sélectionnés
+        df_highlight = df[df["Name"].isin(players)]
+        df_normal = df[~df["Name"].isin(players)]
+    
+        fig = go.Figure()
+    
+        # 🔵 Points normaux (par compétition)
+        for comp in df_normal["competition_name"].unique():
+            df_comp = df_normal[df_normal["competition_name"] == comp]
+            fig.add_trace(go.Scatter(
+                x=df_comp[x_col],
+                y=df_comp[y_col],
+                mode='markers',
+                name=comp,
+                marker=dict(size=8, opacity=0.7),
+                text=df_comp["Name"],
+                hovertemplate=(
+                    f"<b>%{{text}}</b><br>{x_label}: %{{x:.2f}}<br>{y_label}: %{{y:.2f}}<extra></extra>"
+                )
+            ))
+    
+        # ⚫ Joueurs sélectionnés
+        fig.add_trace(go.Scatter(
+            x=df_highlight[x_col],
+            y=df_highlight[y_col],
+            mode='markers+text',
+            name="Joueurs sélectionnés",
+            marker=dict(size=12, color="black", line=dict(width=1, color="white")),
+            text=df_highlight["Name"].apply(lambda x: x.split()[-1]),  # affiche juste le nom
+            textposition="top center",
+            hovertemplate=(
+                f"<b>%{{text}}</b><br>{x_label}: %{{x:.2f}}<br>{y_label}: %{{y:.2f}}<extra></extra>"
+            )
+        ))
+    
+        # ➕ Lignes médianes
+        fig.add_vline(
+            x=x_median,
+            line=dict(color="gray", dash="dash", width=1),
+            annotation_text=f"Médiane {x_label}: {x_median:.2f}",
+            annotation_position="top left"
+        )
+        fig.add_hline(
+            y=y_median,
+            line=dict(color="gray", dash="dash", width=1),
+            annotation_text=f"Médiane {y_label}: {y_median:.2f}",
+            annotation_position="bottom right"
+        )
+    
+        # Mise en page
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_label,
+            yaxis_title=y_label,
+            legend_title="Compétition",
+            height=700,
+            template="simple_white"
+        )
+    
+        return fig
+    
+    # Dictionnaire des compétences
+    competences_dict = {
+        "Compétences : Création des occasions": ("np_xg_90", "xa_90"),
+        "Compétences : Qualité de Dribble": ("dribbles_90", "dribble_ratio"),
+        "Compétences : Etat de confiance": ("npxgxa_90", "over_under_performance_90"),
+        "Compétences : Qualité de tirs": ("obv_shot_90", "np_psxg_90"),
+        "Compétences : Faire progresseur le jeu vers l'avant": ("carry_length", "deep_progressions_90"),
+        "Compétences : Agir le plus proche possible du but": ("op_passes_into_and_touches_inside_box_90", "deep_completions_90"),
+        "Compétences : Capacité à conserver le ballon": ("change_in_passing_ratio", "turnovers_90"),
+        "Compétences : Création de danger": ("obv_dribble_carry_90", "obv_pass_90"),
+        "Compétences : Intensité sans ballon": ("average_x_pressure", "counterpressures_90"),
+        "Compétences : Pressing": ("padj_pressures_90", "pressure_regains_90"),
+        "Compétences : Récupérer des ballons": ("ball_recoveries_90", "padj_interceptions_90"),
+        "Compétences : Duels Aérien": ("aerial_wins_90", "aerial_ratio")
+    }
+
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        competition = st.multiselect("Compétition", data["competition_name"].dropna().unique())
+    
+    with col2:
+        ordered_positions = ['Goalkeeper','Centre Back','Right Centre Back','Left Centre Back','Right Back','Left Back','Left Wing Back','Right Wing Back', 'Centre Defensive Midfielder',
+                             'Right Defensive Midfielder','Left Defensive Midfielder','Right Centre Midfielder','Left Centre Midfielder', 'Right Midfielder','Left Midfielder',
+                             'Centre Attacking Midfielder','Right Attacking Midfielder','Left Attacking Midfielder','Left Wing','Right Wing', 
+                             'Centre Forward','Right Centre Forward','Left Centre Forward']
+
+        available_positions = [pos for pos in ordered_positions if pos in data["primary_position"].unique()]
+        position = st.multiselect("Position principale", available_positions)
+
+    with col3:
+        age = st.slider(
+            "Âge",
+            min_value=int(data["age"].min()),
+            max_value=int(data["age"].max()),
+            value=(int(data["age"].min()), int(data["age"].max()))
+        )
+    
+    with col4:
+        minutes = st.slider(  # ⚠️ ici on appelle la variable "minutes" (pas min_minutes)
+            "Minutes",
+            min_value=int(data["minutes"].min()),
+            max_value=int(data["minutes"].max()),
+            value=(int(data["minutes"].min()), int(data["minutes"].max()))
+        )
+    
+
+    filtered_data = data.copy()
+    if competition:
+        filtered_data = filtered_data[filtered_data["competition_name"].isin(competition)]
+    if position:
+        filtered_data = filtered_data[filtered_data["primary_position"].isin(position)]
+
+    filtered_data = filtered_data[
+        (filtered_data["age"] >= age[0]) &
+        (filtered_data["age"] <= age[1]) &
+        (filtered_data["minutes"] >= minutes[0]) &
+        (filtered_data["minutes"] <= minutes[1])
+    ]
+    
+    player_selection = st.multiselect("Choisis les joueurs à mettre en valeur", filtered_data["player_name"].unique())
+
+    selected_competence = st.selectbox("Choisis une compétence à analyser", list(competences_dict.keys()))
+    x_col, y_col = competences_dict[selected_competence]
+
+
+    if not filtered_data.empty:
+        df_for_plot = filtered_data.rename(columns={"player_name": "Name"})  # plus besoin de Season
+        fig = plot_scatter(df_for_plot, player_selection, x_col, y_col, x_col, y_col, selected_competence)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Aucune donnée pour les filtres sélectionnés.")
+        
+        
+    st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+
+
+    chosen_variables = [
+        "counterpressures_90", "aggressive_actions_90",
+        "aerial_wins_90", "aerial_ratio",
+        "change_in_passing_ratio", "turnovers_90",
+        "padj_tackles_90", "padj_interceptions_90",
+        "blocks_per_shot", "padj_clearances_90",
+        "passing_ratio", "dispossessions_90",
+        "carries_90", "carry_length",
+        "forward_pass_proportion", "obv_pass_90",
+        "dribbled_past_90", "dribble_faced_ratio",
+        "crosses_90", "xa_90",
+        "shot_touch_ratio", "touches_inside_box_90",
+        "np_psxg_90", "obv_shot_90",
+        "dribbles_90", "obv_dribble_carry_90",
+        "defensive_action_regains_90", "pressure_regains_90",
+        "np_xg_90", "np_xg_per_shot"
+    ]
+    
+    column_mappings = {
+        "Agresseur": ["counterpressures_90", "aggressive_actions_90"],
+        "Header": [ "aerial_wins_90", "aerial_ratio"],
+        "Technicien": ["change_in_passing_ratio", "turnovers_90"],
+        "Defender": ["padj_tackles_90", "padj_interceptions_90"],
+        "Blocker": ["blocks_per_shot", "padj_clearances_90"],
+        "Conserver": ["passing_ratio", "dispossessions_90"],
+        "Progress": ["carries_90", "carry_length"],
+        "Pass": ["forward_pass_proportion", "obv_pass_90"],
+        "Dribble": ["dribbled_past_90", "dribble_faced_ratio"],       
+        "Assist": ["crosses_90", "xa_90"],     
+        "Box": ["shot_touch_ratio", "touches_inside_box_90"],
+        "Tireur": ["np_psxg_90", "obv_shot_90"],
+        "Pecuteur": ["dribbles_90", "obv_dribble_carry_90"],
+        "Recuperateur": ["defensive_action_regains_90", "pressure_regains_90"],
+        "Striker": ["np_xg_90", "np_xg_per_shot"],
+    }
+    
+        # Z-score
+    zscore_df = data[['player_name', 'primary_position'] + chosen_variables].copy()
+    zscore_df.fillna(zscore_df.median(numeric_only=True), inplace=True)
+    zscore_df[chosen_variables] = (zscore_df[chosen_variables] - zscore_df[chosen_variables].mean()) / zscore_df[chosen_variables].std()
+    
+    # Aggregate profile scores
+    aggregated_df = zscore_df[['player_name', 'primary_position']].copy()
+    for profile_name, vars_ in column_mappings.items():
+        aggregated_df[profile_name] = zscore_df[vars_[0]] + zscore_df[vars_[1]]
+    
+    aggregated_df["Total_Profile_Score"] = aggregated_df[list(column_mappings.keys())].sum(axis=1)
+    
+    # ✅ Rename columns for plotting
+    aggregated_df = aggregated_df.rename(columns={
+        "player_name": "Name",
+        "primary_position": "Position"
+    })
+    
+    # Streamlit app
+    st.title(" #### Player Profiling: Championnat National")
+      
+    # Select profiles to show in the table
+    selected_profiles = st.multiselect("Select profiles to display in the table:", options=list(column_mappings.keys()), default=["Agresseur", "Defender", "Striker"])
+    
+    # Show table below
+    if selected_profiles:
+        table_df = aggregated_df[['Name', 'Position'] + selected_profiles + ['Total_Profile_Score']].sort_values(by='Total_Profile_Score', ascending=False)
+        st.subheader("Player Table")
+        st.dataframe(table_df, use_container_width=True)
+    
+
+
 st.markdown("""
     <style>
         .footer {
@@ -425,4 +701,3 @@ st.markdown("""
         <p><strong>M.Feigean</strong> - Football Development</p>
     </div>
     """, unsafe_allow_html=True)
-    
