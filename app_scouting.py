@@ -278,7 +278,7 @@ if page == "FCV Database":
     
   
     # Sort by most recent submission
-    filtered_df = filtered_df.sort_values(by="Submitted at", ascending=False)
+    filtered_df = filtered_df.sort_values(by="Submitted at", ascending=True)
     
     full_filtered_df = filtered_df.copy()
     # Columns to Display
