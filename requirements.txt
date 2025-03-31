@@ -16,5 +16,3 @@ adjustText
 xlsxwriter
 plotly
 seaborn
-base64
-uuid
