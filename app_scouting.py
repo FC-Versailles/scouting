@@ -464,7 +464,7 @@ if page == "Chercher Joueurs":
     if search_input.strip() != "":
         player_safe = search_input.replace(" ", "_").lower()  # nom safe pour fichiers/dossiers
     
-        # ----- 💬 COMMENTAIRES -----
+        # ====== 💬 COMMENTAIRES ======
         st.markdown("#### 💬 Commentaires liés au joueur")
     
         COMMENT_DIR = f"comments_storage/{player_safe}"
@@ -502,7 +502,7 @@ if page == "Chercher Joueurs":
 
     st.markdown("---")
 
-    # ----- 📂 PDF -----
+    # ====== 📂 PDF ======
     st.markdown("#### 📂 Documents liés au joueur")
 
     PDF_DIR = f"pdf_storage/{player_safe}"
@@ -534,6 +534,7 @@ if page == "Chercher Joueurs":
                     os.remove(file_path)
                     st.warning(f"❌ {pdf_file} supprimé.")
                     st.rerun()
+
     
 
 elif page == "Statsbomb":
