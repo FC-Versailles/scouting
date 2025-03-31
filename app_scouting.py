@@ -277,10 +277,14 @@ if page == "FCV Database":
         filtered_df = filtered_df[filtered_df['Player'].str.contains(search_query, case=False, na=False)]
     
   
-    full_filtered_df = filtered_df.copy() 
+    # Sort by most recent submission
+    filtered_df = filtered_df.sort_values(by="Submitted at", ascending=False)
+    
+    full_filtered_df = filtered_df.copy()
     # Columns to Display
-    columns_to_display = ["Prénom","Player", "Date de naissance","Pied","Taille", "Poste", "Championnat", "Club", "Fin de contrat","Profil","Type de joueur","Potential"]
+    columns_to_display = ["Prénom", "Player", "Date de naissance", "Pied", "Taille", "Poste", "Championnat", "Club", "Fin de contrat", "Profil", "Type de joueur", "Potential"]
     filtered_df = filtered_df[columns_to_display]
+
     
         # Apply CSS for styling
     st.markdown("""
