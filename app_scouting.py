@@ -16,6 +16,7 @@ import matplotlib.patheffects as patheffects
 import plotly.express as px
 import seaborn as sns
 import base64
+import uuid
 
 st.set_page_config(layout='wide')
 
