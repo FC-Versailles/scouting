@@ -283,7 +283,7 @@ if page == "FCV Database":
     full_filtered_df = filtered_df.copy()
     # Columns to Display
     columns_to_display = ["Prénom", "Player", "Date de naissance", "Pied", "Taille", "Poste", "Championnat", "Club", "Fin de contrat", "Profil", "Type de joueur", "Potential"]
-    full_filtered_df = full_filtered_df [columns_to_display]
+    filtered_df_for_display = full_filtered_df[columns_to_display]
 
     
         # Apply CSS for styling
@@ -311,7 +311,8 @@ if page == "FCV Database":
 
     
     # Display table without index
-    st.write(full_filtered_df.head(500).to_html(index=False, escape=False), unsafe_allow_html=True)
+    st.write(filtered_df_for_display.head(500).to_html(index=False, escape=False), unsafe_allow_html=True)
+
     
     # Export to Excel
     def convert_df_to_excel(df):
