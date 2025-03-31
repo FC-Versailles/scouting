@@ -461,52 +461,55 @@ if page == "Chercher Joueurs":
 
 # ================== PDF MANAGEMENT ==================
 
-    st.markdown("#### 💬 Actualisation du rapport")
+    if search_input.strip() != "":
+        player_safe = search_input.replace(" ", "_").lower()  # nom safe pour fichiers/dossiers
     
-    COMMENT_DIR = "comments_storage"
-    os.makedirs(COMMENT_DIR, exist_ok=True)
+        # ----- 💬 COMMENTAIRES -----
+        st.markdown("#### 💬 Commentaires liés au joueur")
     
-    # 1. Ajouter un commentaire
-    with st.form("add_comment_form"):
-        new_comment = st.text_area("✍️ Ajouter un commentaire")
-        submitted = st.form_submit_button("💾 Enregistrer le commentaire")
-        if submitted and new_comment.strip() != "":
-            comment_id = str(uuid.uuid4())[:8]
-            filename = f"{comment_id}.txt"
-            with open(os.path.join(COMMENT_DIR, filename), "w", encoding="utf-8") as f:
-                f.write(new_comment)
-            st.success("✅ Commentaire ajouté.")
-            st.rerun()
+        COMMENT_DIR = f"comments_storage/{player_safe}"
+        os.makedirs(COMMENT_DIR, exist_ok=True)
     
-    # 2. Lister tous les commentaires
-    comment_files = sorted(os.listdir(COMMENT_DIR))
+        # 1. Ajouter un commentaire
+        with st.form(f"add_comment_form_{player_safe}"):
+            new_comment = st.text_area("✍️ Ajouter un commentaire")
+            submitted = st.form_submit_button("💾 Enregistrer le commentaire")
+            if submitted and new_comment.strip() != "":
+                comment_id = str(uuid.uuid4())[:8]
+                filename = f"{comment_id}.txt"
+                with open(os.path.join(COMMENT_DIR, filename), "w", encoding="utf-8") as f:
+                    f.write(new_comment)
+                st.success("✅ Commentaire ajouté.")
+                st.rerun()
     
-    if not comment_files:
-        st.info("Aucun commentaire enregistré.")
-    else:
-        for file in comment_files:
-            file_path = os.path.join(COMMENT_DIR, file)
-            with open(file_path, "r", encoding="utf-8") as f:
-                comment_text = f.read()
+        # 2. Lister les commentaires
+        comment_files = sorted(os.listdir(COMMENT_DIR))
+        if not comment_files:
+            st.info("Aucun commentaire enregistré pour ce joueur.")
+        else:
+            for file in comment_files:
+                file_path = os.path.join(COMMENT_DIR, file)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    comment_text = f.read()
     
-            with st.expander("💬 Commentaire", expanded=False):
-                st.markdown(f"<div style='white-space: pre-wrap;'>{comment_text}</div>", unsafe_allow_html=True)
+                with st.expander("💬 Commentaire", expanded=False):
+                    st.markdown(f"<div style='white-space: pre-wrap;'>{comment_text}</div>", unsafe_allow_html=True)
     
-                if st.button(f"🗑 Supprimer", key=file):
-                    os.remove(file_path)
-                    st.warning(f"❌ Commentaire supprimé.")
-                    st.rerun()
-    
+                    if st.button(f"🗑 Supprimer", key=f"{player_safe}_{file}"):
+                        os.remove(file_path)
+                        st.warning("❌ Commentaire supprimé.")
+                        st.rerun()
+
     st.markdown("---")
 
+    # ----- 📂 PDF -----
+    st.markdown("#### 📂 Documents liés au joueur")
 
-    st.markdown("#### 📂 Documents")
-    
-    PDF_DIR = "pdf_storage"
+    PDF_DIR = f"pdf_storage/{player_safe}"
     os.makedirs(PDF_DIR, exist_ok=True)
-    
+
     # 1. Upload PDF
-    uploaded_file = st.file_uploader("Uploader un rapport PDF", type=["pdf"])
+    uploaded_file = st.file_uploader("Uploader un rapport PDF", type=["pdf"], key=f"uploader_{player_safe}")
     if uploaded_file is not None:
         save_path = os.path.join(PDF_DIR, uploaded_file.name)
         with open(save_path, "wb") as f:
@@ -514,25 +517,20 @@ if page == "Chercher Joueurs":
         st.success(f"✅ Fichier {uploaded_file.name} ajouté avec succès.")
         st.rerun()
 
-    
-    # 2. Lister les fichiers déjà présents
+    # 2. Lister les fichiers
     pdf_files = [f for f in os.listdir(PDF_DIR) if f.endswith(".pdf")]
-    
     if not pdf_files:
-        st.info("Aucun PDF disponible.")
+        st.info("Aucun PDF disponible pour ce joueur.")
     else:
         for pdf_file in pdf_files:
             file_path = os.path.join(PDF_DIR, pdf_file)
-    
             with st.expander(f"📄 {pdf_file}", expanded=False):
-                # Prévisualisation du PDF intégré
                 with open(file_path, "rb") as f:
                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" type="application/pdf"></iframe>'
                     st.markdown(pdf_display, unsafe_allow_html=True)
-    
-                # Bouton de suppression
-                if st.button(f"🗑 Supprimer {pdf_file}", key=pdf_file):
+
+                if st.button(f"🗑 Supprimer {pdf_file}", key=f"{player_safe}_{pdf_file}"):
                     os.remove(file_path)
                     st.warning(f"❌ {pdf_file} supprimé.")
                     st.rerun()
