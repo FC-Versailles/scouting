@@ -540,8 +540,10 @@ def save_shortlist(shortlist_data, sha=None):
     }
     if sha:
         data["sha"] = sha
-    response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
-    return response.status_code == 200
+        response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
+    else:
+        response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
+    return response.status_code in [200, 201]
 
 shortlist_data, shortlist_sha = load_shortlist()
 
