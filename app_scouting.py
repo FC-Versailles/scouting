@@ -507,15 +507,6 @@ if page == "Joueur à regarder":
 
 
 
-# # --- GitHub Settings from Streamlit Secrets ---
-# GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-# REPO_NAME = st.secrets["FC-Versailles/scouting"]
-# BRANCH = st.secrets["main"]
-# SHORTLIST_PATH = st.secrets["shortlist_global.json"]
-
-# GITHUB_API_URL = f"https://api.github.com/repos/FC-Versailles/scouting/contents/shortlist_global.json"
-# HEADERS = {"Authorization": f"token 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"}
-
 # --- GitHub Settings from Streamlit Secrets ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
@@ -563,27 +554,32 @@ if page == "Short List":
     def render_position_select(position):
         st.markdown(f"### {position}")
 
-        current_player = shortlist_data.get(position, "")
+        current_list = shortlist_data.get(position, [])
+        if not isinstance(current_list, list):
+            current_list = []
 
-        selected = st.selectbox(
-            f"Sélectionner un joueur pour {position} :",
-            ["-- Choisir --"] + [p for p in available_players if p != current_player],
-            index=0,
-            key=f"select_{position}"
-        )
+        if len(current_list) < 5:
+            selected = st.selectbox(
+                f"Ajouter un joueur à {position} :",
+                ["-- Choisir --"] + [p for p in available_players if p not in current_list],
+                key=f"select_{position}"
+            )
+            if selected != "-- Choisir --" and selected not in current_list:
+                current_list.append(selected)
+                shortlist_data[position] = current_list
+                save_shortlist(shortlist_data, shortlist_sha)
 
-        if selected != "-- Choisir --" and selected != current_player:
-            shortlist_data[position] = selected
-            save_shortlist(shortlist_data, shortlist_sha)
-
-        if current_player:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"**{current_player}**")
-            with col2:
-                if st.button(f"❌", key=f"remove_{position}"):
-                    shortlist_data[position] = ""
-                    save_shortlist(shortlist_data, shortlist_sha)
+        if current_list:
+            st.markdown("**Joueurs sélectionnés :**")
+            for player in current_list:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.write(player)
+                with col2:
+                    if st.button(f"❌ {player}", key=f"remove_{position}_{player}"):
+                        current_list.remove(player)
+                        shortlist_data[position] = current_list
+                        save_shortlist(shortlist_data, shortlist_sha)
 
     with st.container():
         st.markdown("#### 🧤 Défense")
@@ -609,16 +605,15 @@ if page == "Short List":
         with att3: render_position_select("LW")
 
     if st.button("🗑️ Réinitialiser toute la Shortlist"):
-        shortlist_data = {pos: "" for pos in shortlist_data}
+        shortlist_data = {pos: [] for pos in shortlist_data}
         save_shortlist(shortlist_data, shortlist_sha)
         st.success("Shortlist réinitialisée.")
 
     # Vue récapitulative
     st.markdown("---")
     st.subheader("📋 Vue récapitulative de la Shortlist")
-    recap_df = pd.DataFrame.from_dict(shortlist_data, orient='index', columns=["Joueur"])
-    recap_df.reset_index(inplace=True)
-    recap_df.columns = ["Poste", "Joueur"]
+    recap_data = [(pos, ", ".join(players)) for pos, players in shortlist_data.items()]
+    recap_df = pd.DataFrame(recap_data, columns=["Poste", "Joueurs"])
     st.dataframe(recap_df, use_container_width=True)
 
     # Vue terrain 1-4-3-3
@@ -638,8 +633,11 @@ if page == "Short List":
     }
 
     for pos, (x, y) in position_coords.items():
-        player = shortlist_data.get(pos, "")
-        label = f"{pos}\n{player}" if player else pos
+        players = shortlist_data.get(pos, [])
+        if isinstance(players, list):
+            label = f"{pos}\n" + "\n".join(players[:5])
+        else:
+            label = f"{pos}\n{players}"
         ax.text(x, y, label, ha='center', va='center', fontsize=9,
                 bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
