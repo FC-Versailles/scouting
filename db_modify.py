@@ -26,6 +26,16 @@ import seaborn as sns
 
 st.set_page_config(layout='wide')
 
+# Display the club logo from GitHub at the top right
+logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
+col1, col2 = st.columns([9, 1])
+with col1:
+    st.title("Recrutement | FC Versailles")
+with col2:
+    st.image(logo_url, use_container_width=True)
+    
+st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 TOKEN_FILE = 'token.pickle_v1'
@@ -126,8 +136,10 @@ with st.form("edit_form"):
             elif champ["type"] == "multiselect":
                 valeurs = valeur_actuelle.split(", ") if valeur_actuelle else []
                 nouvelles_valeurs[colonne] = st.multiselect(colonne, options=champ["options"], default=valeurs)
-        else:
-            nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
+            elif colonne == "Rapport":
+                nouvelles_valeurs[colonne] = st.text_area(colonne, valeur_actuelle, height=200)
+            else:
+                nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
 
     submit = st.form_submit_button("Enregistrer")
 
