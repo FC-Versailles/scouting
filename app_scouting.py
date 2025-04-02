@@ -507,14 +507,23 @@ if page == "Joueur à regarder":
 
 
 
+# # --- GitHub Settings from Streamlit Secrets ---
+# GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+# REPO_NAME = st.secrets["FC-Versailles/scouting"]
+# BRANCH = st.secrets["main"]
+# SHORTLIST_PATH = st.secrets["shortlist_global.json"]
+
+# GITHUB_API_URL = f"https://api.github.com/repos/FC-Versailles/scouting/contents/shortlist_global.json"
+# HEADERS = {"Authorization": f"token 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"}
+
 # --- GitHub Settings from Streamlit Secrets ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-REPO_NAME = st.secrets["FC-Versailles/scouting"]
-BRANCH = st.secrets["main"]
-SHORTLIST_PATH = st.secrets["shortlist_global.json"]
+REPO_NAME = st.secrets["REPO_NAME"]
+BRANCH = st.secrets["BRANCH"]
+SHORTLIST_PATH = st.secrets["SHORTLIST_PATH"]
 
-GITHUB_API_URL = f"https://api.github.com/repos/FC-Versailles/scouting/contents/shortlist_global.json"
-HEADERS = {"Authorization": f"token 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"}
+GITHUB_API_URL = f"https://api.github.com/repos/{REPO_NAME}/contents/{SHORTLIST_PATH}"
+HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
 # --- Load shortlist from GitHub ---
 def load_shortlist():
