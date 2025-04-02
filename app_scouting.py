@@ -19,6 +19,8 @@ import base64
 import uuid
 import json
 from pathlib import Path
+import requests
+
 
 
 st.set_page_config(layout='wide')
@@ -503,26 +505,51 @@ if page == "Joueur à regarder":
 ####################################################################################################################################################################################### 
 ####################################################################################################################################################################################### 
 
-SHORTLIST_FILE = Path("shortlist_global.json")
 
-# Initialiser ou charger la shortlist globale
-if SHORTLIST_FILE.exists():
-    with open(SHORTLIST_FILE, "r") as f:
-        shortlist_data = json.load(f)
-else:
-    shortlist_data = {pos: [] for pos in [
-        'GK', 'RB', 'RCB', 'LCB', 'LB',
-        'RCM', 'CM', 'LCM',
-        'RW', 'ST', 'LW']}
+
+# --- GitHub Settings from Streamlit Secrets ---
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+REPO_NAME = st.secrets["FC-Versailles/scouting"]
+BRANCH = st.secrets["main"]
+SHORTLIST_PATH = st.secrets["shortlist_global.json"]
+
+GITHUB_API_URL = f"https://api.github.com/repos/FC-Versailles/scouting/contents/shortlist_global.json"
+HEADERS = {"Authorization": f"token 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"}
+
+# --- Load shortlist from GitHub ---
+def load_shortlist():
+    response = requests.get(GITHUB_API_URL, headers=HEADERS)
+    if response.status_code == 200:
+        content = response.json()
+        decoded = base64.b64decode(content['content']).decode('utf-8')
+        return json.loads(decoded), content['sha']
+    else:
+        default = {pos: [] for pos in [
+            'GK', 'RB', 'RCB', 'LCB', 'LB',
+            'RCM', 'CM', 'LCM',
+            'RW', 'ST', 'LW']}
+        return default, None
+
+# --- Save shortlist to GitHub ---
+def save_shortlist(shortlist_data, sha=None):
+    content = json.dumps(shortlist_data, indent=2)
+    encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+    data = {
+        "message": "update shortlist",
+        "content": encoded,
+        "branch": BRANCH
+    }
+    if sha:
+        data["sha"] = sha
+    response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
+    return response.status_code == 200
+
+shortlist_data, shortlist_sha = load_shortlist()
 
 if page == "Short List":
-    st.markdown('<h2 style="color:#1E64C8; margin-bottom: 20px;"> Short List - Shadow Team</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="color:#1E64C8; margin-bottom: 20px;"> Short List - Shadow Team (1-4-3-3)</h2>', unsafe_allow_html=True)
 
     available_players = df['Player'].dropna().unique().tolist()
-
-    def save_shortlist():
-        with open(SHORTLIST_FILE, "w") as f:
-            json.dump(shortlist_data, f, indent=2)
 
     def render_position_select(position):
         st.markdown(f"### {position}")
@@ -537,7 +564,7 @@ if page == "Short List":
             )
             if selected != "-- Choisir --" and selected not in current_list:
                 shortlist_data[position].append(selected)
-                save_shortlist()
+                save_shortlist(shortlist_data, shortlist_sha)
 
         if current_list:
             st.markdown("**Joueurs sélectionnés :**")
@@ -548,7 +575,7 @@ if page == "Short List":
                 with col2:
                     if st.button(f"❌", key=f"remove_{position}_{player}"):
                         shortlist_data[position].remove(player)
-                        save_shortlist()
+                        save_shortlist(shortlist_data, shortlist_sha)
 
     with st.container():
         st.markdown("#### 🧤 Défense")
@@ -575,7 +602,7 @@ if page == "Short List":
 
     if st.button("🗑️ Réinitialiser toute la Shortlist"):
         shortlist_data = {pos: [] for pos in shortlist_data}
-        save_shortlist()
+        save_shortlist(shortlist_data, shortlist_sha)
         st.success("Shortlist réinitialisée.")
 
     # Vue récapitulative par tableau
@@ -593,7 +620,7 @@ if page == "Short List":
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 100)
     ax.axis('off')
-    
+
     position_coords = {
         "GK": (50, 10),
         "RB": (80, 25), "RCB": (65, 30), "LCB": (35, 30), "LB": (20, 25),
@@ -603,11 +630,14 @@ if page == "Short List":
 
     for pos, (x, y) in position_coords.items():
         players = shortlist_data.get(pos, [])
-        label = f"{pos}\n" + "\n".join(players[:2])  # Montre les 2 premiers max
+        label = f"{pos}\n" + "\n".join(players[:2])
         ax.text(x, y, label, ha='center', va='center', fontsize=9, bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
     st.pyplot(fig)
 
+
+####################################################################################################################################################################################### 
+####################################################################################################################################################################################### 
 
 
 elif page == "Statsbomb":
