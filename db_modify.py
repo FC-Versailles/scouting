@@ -138,8 +138,8 @@ with st.form("edit_form"):
                 nouvelles_valeurs[colonne] = st.multiselect(colonne, options=champ["options"], default=valeurs)
             elif colonne == "Rapport":
                 nouvelles_valeurs[colonne] = st.text_area(colonne, valeur_actuelle, height=200)
-            else:
-                nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
+        else:
+            nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
 
     submit = st.form_submit_button("Enregistrer")
 
