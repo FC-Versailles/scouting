@@ -556,7 +556,7 @@ def save_shortlist(shortlist_data, sha=None):
 shortlist_data, shortlist_sha = load_shortlist()
 
 if page == "Short List":
-    st.markdown('<h2 style="color:#1E64C8; margin-bottom: 20px;"> Short List - Shadow Team (1-4-3-3)</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;"> Short List - Shadow Team (1-4-3-3)</h2>', unsafe_allow_html=True)
 
     available_players = df['Player'].dropna().unique().tolist()
 
@@ -617,8 +617,10 @@ if page == "Short List":
     # Vue récapitulative par tableau
     st.markdown("---")
     st.subheader("📋 Vue récapitulative de la Shortlist")
-    recap_df = pd.DataFrame.from_dict(shortlist_data, orient='index').reset_index()
-    recap_df.columns = ['Poste', 'Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5']
+    recap_df = pd.DataFrame.from_dict(shortlist_data, orient='index')
+    recap_df.reset_index(inplace=True)
+    recap_df.rename(columns={"index": "Poste"}, inplace=True)
+    recap_df.columns = ["Poste"] + [f"Joueur {i+1}" for i in range(recap_df.shape[1] - 1)]
     st.dataframe(recap_df, use_container_width=True)
 
     # Vue terrain 1-4-3-3
@@ -643,7 +645,6 @@ if page == "Short List":
         ax.text(x, y, label, ha='center', va='center', fontsize=9, bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
     st.pyplot(fig)
-
 
 ####################################################################################################################################################################################### 
 ####################################################################################################################################################################################### 
