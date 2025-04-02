@@ -506,7 +506,6 @@ if page == "Joueur à regarder":
 ####################################################################################################################################################################################### 
 
 
-
 # --- GitHub Settings from Streamlit Secrets ---
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 REPO_NAME = st.secrets["REPO_NAME"]
@@ -558,16 +557,15 @@ if page == "Short List":
         if not isinstance(current_list, list):
             current_list = []
 
-        if len(current_list) < 5:
-            selected = st.selectbox(
-                f"Ajouter un joueur à {position} :",
-                ["-- Choisir --"] + [p for p in available_players if p not in current_list],
-                key=f"select_{position}"
-            )
-            if selected != "-- Choisir --" and selected not in current_list:
-                current_list.append(selected)
-                shortlist_data[position] = current_list
-                save_shortlist(shortlist_data, shortlist_sha)
+        selected = st.selectbox(
+            f"Ajouter un joueur à {position} :",
+            ["-- Choisir --"] + [p for p in available_players if p not in current_list],
+            key=f"select_{position}"
+        )
+        if selected != "-- Choisir --" and selected not in current_list:
+            current_list.append(selected)
+            shortlist_data[position] = current_list
+            save_shortlist(shortlist_data, shortlist_sha)
 
         if current_list:
             st.markdown("**Joueurs sélectionnés :**")
@@ -609,13 +607,6 @@ if page == "Short List":
         save_shortlist(shortlist_data, shortlist_sha)
         st.success("Shortlist réinitialisée.")
 
-    # Vue récapitulative
-    st.markdown("---")
-    st.subheader("📋 Vue récapitulative de la Shortlist")
-    recap_data = [(pos, ", ".join(players)) for pos, players in shortlist_data.items()]
-    recap_df = pd.DataFrame(recap_data, columns=["Poste", "Joueurs"])
-    st.dataframe(recap_df, use_container_width=True)
-
     # Vue terrain 1-4-3-3
     st.markdown("---")
     st.subheader("📷 Vue terrain 1-4-3-3")
@@ -634,10 +625,10 @@ if page == "Short List":
 
     for pos, (x, y) in position_coords.items():
         players = shortlist_data.get(pos, [])
-        if isinstance(players, list):
+        if isinstance(players, list) and players:
             label = f"{pos}\n" + "\n".join(players[:5])
         else:
-            label = f"{pos}\n{players}"
+            label = pos
         ax.text(x, y, label, ha='center', va='center', fontsize=9,
                 bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
