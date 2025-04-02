@@ -617,14 +617,19 @@ if page == "Short List":
     # Vue récapitulative par tableau
     st.markdown("---")
     st.subheader("📋 Vue récapitulative de la Shortlist")
-    recap_dict = {"Poste": [], "Joueur 1": [], "Joueur 2": [], "Joueur 3": [], "Joueur 4": [], "Joueur 5": []}
-    for position, players in shortlist_data.items():
+    recap_dict = {"Poste": []}
+    max_players = 5
+    for i in range(1, max_players + 1):
+        recap_dict[f"Joueur {i}"] = []
+
+    for position in [
+        'GK', 'RB', 'RCB', 'LCB', 'LB',
+        'RCM', 'CM', 'LCM',
+        'RW', 'ST', 'LW']:
+        players = shortlist_data.get(position, [])
         recap_dict["Poste"].append(position)
-        for i in range(5):
-            if len(recap_dict) < i + 2:
-                recap_dict[f"Joueur {i+1}"].append(players[i] if i < len(players) else "")
-            else:
-                recap_dict[f"Joueur {i+1}"].append(players[i] if i < len(players) else "")
+        for i in range(max_players):
+            recap_dict[f"Joueur {i+1}"].append(players[i] if i < len(players) else "")
 
     recap_df = pd.DataFrame(recap_dict)
     st.dataframe(recap_df, use_container_width=True)
@@ -651,7 +656,6 @@ if page == "Short List":
         ax.text(x, y, label, ha='center', va='center', fontsize=9, bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
     st.pyplot(fig)
-    
     
 ####################################################################################################################################################################################### 
 ####################################################################################################################################################################################### 
