@@ -409,7 +409,7 @@ if page == "Chercher Joueurs":
                 st.warning("Aucun rapport disponible pour ce joueur.")
 
             radar_sets = [
-                ("\U0001F4CA Physical Skills", ["Physiquement fort", "Intensité des courses", "Volume des courses"], 'rgba(0, 48, 135, 0.7)'),
+                ("\U0001F4CA Physical Skills", ["Physiquement fort", "Intensité des courses","Vitesse", "Volume des courses"], 'rgba(0, 48, 135, 0.7)'),
                 ("\U0001F3AF Contribution au jeu", ["Conserver", "Progresser", "Créer du danger", "Contribuer"], 'rgba(255, 111, 0, 0.7)'),
                 ("\U0001F6E1\ufe0f Défensive", ["Implication défensive", "Duels et interceptions", "Chasseur"], 'rgba(0, 135, 91, 0.7)')
             ]
