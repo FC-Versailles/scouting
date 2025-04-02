@@ -135,7 +135,7 @@ df['Age'] = current_year - df['Date de naissance']
 
 params = st.query_params
 default_page = params.get("page", "FCV Database")
-PAGES = ["FCV Database", "Chercher Joueurs", "Statsbomb"]
+PAGES = ["FCV Database", "Chercher Joueurs","Joueur à regarder ","Statsbomb"]
 page = st.sidebar.selectbox("Select Page", PAGES, index=PAGES.index(default_page))
 
 #####################################################################################################################
@@ -457,6 +457,39 @@ if page == "Chercher Joueurs":
     elif search_input:
         st.info("Aucun joueur trouvé avec ce nom.")
 
+if page == "Joueur à regarder":
+    st.markdown('<h2 style="color:#E34B00; margin-bottom: 20px;">🕵️ Joueurs à regarder</h2>', unsafe_allow_html=True)
+
+    # Filtrer les joueurs pour lesquels le champ "Rapport" est vide
+    watchlist_df = df[df['Rapport'].isna() | (df['Rapport'].str.strip() == "")]
+
+    if watchlist_df.empty:
+        st.success("🎉 Tous les joueurs ont un rapport !")
+    else:
+        # Colonnes à afficher pour la liste de joueurs sans rapport
+        cols_to_show = [
+            "Prénom", "Player", "Date de naissance", "Pied", "Taille", "Poste", 
+            "Championnat", "Club", "Fin de contrat", "Profil", "Type de joueur", "Potential"
+        ]
+
+        st.markdown("Voici la liste des joueurs sans rapport de scout :")
+        st.dataframe(watchlist_df[cols_to_show].sort_values(by="Submitted at", ascending=False), use_container_width=True)
+
+        # Ajout d'un bouton pour télécharger la liste
+        def convert_watchlist_to_excel(df):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Watchlist')
+            return output.getvalue()
+
+        excel_watchlist = convert_watchlist_to_excel(watchlist_df[cols_to_show])
+
+        st.download_button(
+            label="📂 Télécharger la liste des joueurs sans rapport",
+            data=excel_watchlist,
+            file_name="FCV_Joueurs_sans_rapport.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 
 elif page == "Statsbomb":
