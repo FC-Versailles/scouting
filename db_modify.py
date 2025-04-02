@@ -28,7 +28,7 @@ st.set_page_config(layout='wide')
 
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-TOKEN_FILE = 'token.pickle'
+TOKEN_FILE = 'token.pickle_v1'
 SPREADSHEET_ID = '1bqVJ5zSBJJsZe_PsH5lzspFKA6P0l3Mfc4jta00Jh9k'
 DATABASE_RANGE = 'Feuille 1'
 
@@ -42,7 +42,7 @@ def get_credentials():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'client_secret.json', SCOPES
+                'client_secret_v1.json', SCOPES
             )
             creds = flow.run_local_server(port=0)
         with open(TOKEN_FILE, 'wb') as token:
