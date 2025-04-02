@@ -171,8 +171,6 @@ if submit:
         "values": [row_values]
     }
 
-    st.write("✅ Debug - plage:", range_to_update)
-    st.write("✅ Debug - valeurs:", row_values)
 
     creds = get_credentials()
     service = build('sheets', 'v4', credentials=creds)
