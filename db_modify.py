@@ -109,21 +109,22 @@ with st.form("edit_form"):
         if colonne == "Player":
             continue
 
-        valeur_actuelle = joueur_data[colonne]
-        valeur_actuelle = str(valeur_actuelle) if valeur_actuelle is not None else ""
+        valeur_actuelle = joueur_data[colonne] if pd.notna(joueur_data[colonne]) else ""
+        valeur_actuelle = str(valeur_actuelle)
 
         if colonne in champ_personnalise:
             champ = champ_personnalise[colonne]
             if champ["type"] == "slider":
-                nouvelles_valeurs[colonne] = st.slider(
-                    colonne, min_value=champ["min"], max_value=champ["max"],
-                    value=int(valeur_actuelle) if valeur_actuelle.isdigit() else champ["min"]
-                )
+                try:
+                    val = int(valeur_actuelle)
+                except:
+                    val = champ["min"]
+                nouvelles_valeurs[colonne] = st.slider(colonne, min_value=champ["min"], max_value=champ["max"], value=val)
             elif champ["type"] == "selectbox":
                 index = champ["options"].index(valeur_actuelle) if valeur_actuelle in champ["options"] else 0
                 nouvelles_valeurs[colonne] = st.selectbox(colonne, options=champ["options"], index=index)
             elif champ["type"] == "multiselect":
-                valeurs = valeur_actuelle.split(", ") if isinstance(valeur_actuelle, str) else []
+                valeurs = valeur_actuelle.split(", ") if valeur_actuelle else []
                 nouvelles_valeurs[colonne] = st.multiselect(colonne, options=champ["options"], default=valeurs)
         else:
             nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
@@ -134,14 +135,12 @@ if submit:
     row_index = df[df['Player'] == joueur_selectionne].index[0] + 2  # ligne réelle dans Sheets
 
     def col_idx_to_letter(n):
-        """Convertit un index de colonne (0-based) en lettre Excel (A, B, ..., Z, AA, AB, ..., AZ, BA, ...)"""
         string = ""
         while n >= 0:
-            n, remainder = divmod(n, 26)
-            string = chr(65 + remainder) + string
+            n, r = divmod(n, 26)
+            string = chr(65 + r) + string
             n -= 1
         return string
-
 
     row_values = []
     for col in df.columns:
@@ -150,26 +149,31 @@ if submit:
         elif col in champ_personnalise and champ_personnalise[col]["type"] == "multiselect":
             row_values.append(", ".join(nouvelles_valeurs.get(col, [])))
         else:
-            row_values.append(nouvelles_valeurs.get(col, joueur_data[col]))
-    
+            val = nouvelles_valeurs.get(col, joueur_data[col])
+            row_values.append(str(val) if val is not None else "")
+
     last_col_index = len(df.columns) - 1
     last_col_letter = col_idx_to_letter(last_col_index)
     range_to_update = f"{DATABASE_RANGE}!A{row_index}:{last_col_letter}{row_index}"
-
 
     update_body = {
         "values": [row_values]
     }
 
+    st.write("✅ Debug - plage:", range_to_update)
+    st.write("✅ Debug - valeurs:", row_values)
+
     creds = get_credentials()
     service = build('sheets', 'v4', credentials=creds)
     sheet = service.spreadsheets()
 
-    response = sheet.values().update(
-        spreadsheetId=SPREADSHEET_ID,
-        range=range_to_update,
-        valueInputOption="USER_ENTERED",
-        body=update_body
-    ).execute()
-
-    st.success("✅ Modifications enregistrées dans Google Sheets")
+    try:
+        response = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=range_to_update,
+            valueInputOption="USER_ENTERED",
+            body=update_body
+        ).execute()
+        st.success("✅ Modifications enregistrées dans Google Sheets")
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la mise à jour Google Sheets : {e}")
