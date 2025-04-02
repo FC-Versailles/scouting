@@ -557,13 +557,19 @@ if page == "Short List":
         if not isinstance(current_list, list):
             current_list = []
 
-        selected = st.selectbox(
-            f"Ajouter un joueur à {position} :",
-            ["-- Choisir --"] + [p for p in available_players if p not in current_list],
-            key=f"select_{position}"
+        selected = st.multiselect(
+            f"Ajouter des joueurs à {position} :",
+            [p for p in available_players if p not in current_list],
+            key=f"multi_{position}"
         )
-        if selected != "-- Choisir --" and selected not in current_list:
-            current_list.append(selected)
+
+        updated = False
+        for player in selected:
+            if player not in current_list and len(current_list) < 5:
+                current_list.append(player)
+                updated = True
+
+        if updated:
             shortlist_data[position] = current_list
             save_shortlist(shortlist_data, shortlist_sha)
 
@@ -633,6 +639,7 @@ if page == "Short List":
                 bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
     st.pyplot(fig)
+
 
     
 ####################################################################################################################################################################################### 
