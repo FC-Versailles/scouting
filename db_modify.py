@@ -151,10 +151,11 @@ if submit:
             row_values.append(", ".join(nouvelles_valeurs.get(col, [])))
         else:
             row_values.append(nouvelles_valeurs.get(col, joueur_data[col]))
-
+    
     last_col_index = len(df.columns) - 1
     last_col_letter = col_idx_to_letter(last_col_index)
     range_to_update = f"{DATABASE_RANGE}!A{row_index}:{last_col_letter}{row_index}"
+
 
     update_body = {
         "values": [row_values]
