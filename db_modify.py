@@ -99,7 +99,7 @@ champs_note_5 = [
 ]
 
 for champ in champs_note_5:
-    champ_personnalise[champ] = {"type": "slider", "min": 1, "max": 5}
+    champ_personnalise[champ] = {"type": "slider", "min": 0, "max": 5}
 
 # Formulaire Streamlit dynamique
 with st.form("edit_form"):
