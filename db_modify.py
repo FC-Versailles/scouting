@@ -28,7 +28,7 @@ import seaborn as sns
 logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
 col1, col2 = st.columns([9, 1])
 with col1:
-    st.title("Recrutement | FC Versailles")
+    st.title("Scouting Database| FC Versailles")
 with col2:
     st.image(logo_url, use_container_width=True)
     
