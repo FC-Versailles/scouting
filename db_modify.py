@@ -134,11 +134,14 @@ if submit:
     row_index = df[df['Player'] == joueur_selectionne].index[0] + 2  # ligne réelle dans Sheets
 
     def col_idx_to_letter(n):
+        """Convertit un index de colonne (0-based) en lettre Excel (A, B, ..., Z, AA, AB, ..., AZ, BA, ...)"""
         string = ""
         while n >= 0:
-            string = chr(n % 26 + ord('A')) + string
-            n = n // 26 - 1
+            n, remainder = divmod(n, 26)
+            string = chr(65 + remainder) + string
+            n -= 1
         return string
+
 
     row_values = []
     for col in df.columns:
