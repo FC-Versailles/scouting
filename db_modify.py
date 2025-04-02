@@ -24,16 +24,7 @@ import matplotlib.patheffects as patheffects
 import plotly.express as px
 import seaborn as sns
 
-
-# Display the club logo from GitHub at the top right
-logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
-col1, col2 = st.columns([9, 1])
-with col1:
-    st.title("Modifier la database | FC Versailles")
-with col2:
-    st.image(logo_url, use_container_width=True)
-    
-st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
+st.set_page_config(layout='wide')
 
 # ---- GOOGLE SHEETS CONFIGURATION ----
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -53,7 +44,7 @@ def get_credentials():
             flow = InstalledAppFlow.from_client_secrets_file(
                 'client_secret_v1.json', SCOPES
             )
-            creds = flow.run_console()  # ✅ PATCH ICI
+            creds = flow.run_local_server(port=0)
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
     return creds
@@ -108,7 +99,7 @@ champs_note_5 = [
 ]
 
 for champ in champs_note_5:
-    champ_personnalise[champ] = {"type": "slider", "min": 0, "max": 5}
+    champ_personnalise[champ] = {"type": "slider", "min": 1, "max": 5}
 
 # Formulaire Streamlit dynamique
 with st.form("edit_form"):
@@ -121,7 +112,9 @@ with st.form("edit_form"):
         valeur_actuelle = joueur_data[colonne] if pd.notna(joueur_data[colonne]) else ""
         valeur_actuelle = str(valeur_actuelle)
 
-        if colonne in champ_personnalise:
+        if colonne == "Rapport":
+            nouvelles_valeurs[colonne] = st.text_area(colonne, valeur_actuelle, height=200)
+        elif colonne in champ_personnalise:
             champ = champ_personnalise[colonne]
             if champ["type"] == "slider":
                 try:
@@ -135,8 +128,6 @@ with st.form("edit_form"):
             elif champ["type"] == "multiselect":
                 valeurs = valeur_actuelle.split(", ") if valeur_actuelle else []
                 nouvelles_valeurs[colonne] = st.multiselect(colonne, options=champ["options"], default=valeurs)
-            elif colonne == "Rapport":
-                nouvelles_valeurs[colonne] = st.text_area(colonne, valeur_actuelle, height=200)
         else:
             nouvelles_valeurs[colonne] = st.text_input(colonne, valeur_actuelle)
 
