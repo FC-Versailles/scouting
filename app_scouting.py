@@ -580,7 +580,7 @@ if page == "Short List":
                 with col1:
                     st.write(player)
                 with col2:
-                    if st.button(f"❌ {player}", key=f"remove_{position}_{player}"):
+                    if st.button(f"❌", key=f"remove_{position}_{player}"):
                         current_list.remove(player)
                         shortlist_data[position] = current_list
                         save_shortlist(shortlist_data, shortlist_sha)
