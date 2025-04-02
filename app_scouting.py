@@ -17,6 +17,9 @@ import plotly.express as px
 import seaborn as sns
 import base64
 import uuid
+import json
+from pathlib import Path
+
 
 st.set_page_config(layout='wide')
 
@@ -135,7 +138,7 @@ df['Age'] = current_year - df['Date de naissance']
 
 params = st.query_params
 default_page = params.get("page", "FCV Database")
-PAGES = ["FCV Database", "Chercher Joueurs","Joueur à regarder ","Statsbomb"]
+PAGES = ["FCV Database", "Chercher Joueurs","Joueur à regarder","Statsbomb","Short List"]
 page = st.sidebar.selectbox("Select Page", PAGES, index=PAGES.index(default_page))
 
 #####################################################################################################################
@@ -374,8 +377,9 @@ if page == "FCV Database":
     
 
         st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
-    
-    
+####################################################################################################################################################################################### 
+#######################################################################################################################################################################################
+ 
 if page == "Chercher Joueurs":
     st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">\U0001F50E Chercher un Joueur</h2>', unsafe_allow_html=True)
 
@@ -456,40 +460,154 @@ if page == "Chercher Joueurs":
 
     elif search_input:
         st.info("Aucun joueur trouvé avec ce nom.")
+        
+####################################################################################################################################################################################### 
+####################################################################################################################################################################################### 
 
 if page == "Joueur à regarder":
-    st.markdown('<h2 style="color:#E34B00; margin-bottom: 20px;">🕵️ Joueurs à regarder</h2>', unsafe_allow_html=True)
 
-    # Filtrer les joueurs pour lesquels le champ "Rapport" est vide
-    watchlist_df = df[df['Rapport'].isna() | (df['Rapport'].str.strip() == "")]
+    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;">\U0001F50E Joueurs à regarder</h2>', unsafe_allow_html=True)
 
-    if watchlist_df.empty:
-        st.success("🎉 Tous les joueurs ont un rapport !")
+
+    # 🔧 Vérifie combien de joueurs n'ont pas de rapport
+    if "Rapport" in df.columns:
+        st.write("👀 Nombre de joueurs sans rapport :", df['Rapport'].isna().sum() + (df['Rapport'].str.strip() == "").sum())
+
+        # Filtrer les joueurs pour lesquels le champ "Rapport" est vide
+        watchlist_df = df[df['Rapport'].isna() | (df['Rapport'].str.strip() == "")]
+     
+
+        if watchlist_df.empty:
+            st.success("🎉 Tous les joueurs ont un rapport !")
+        else:
+            # Colonnes à afficher pour la liste de joueurs sans rapport
+            cols_to_show = [
+                "Submitted at","Prénom", "Player", "Poste", 
+                "Championnat", "Club", "Fin de contrat"
+            ]
+
+            st.markdown("Voici la liste des joueurs sans rapport de scout :")
+            watchlist_df = watchlist_df.sort_values(by="Submitted at", ascending=False)
+            st.dataframe(watchlist_df[cols_to_show], use_container_width=True)
+
+            # Ajout d'un bouton pour télécharger la liste
+            def convert_watchlist_to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Watchlist')
+                return output.getvalue()
+
     else:
-        # Colonnes à afficher pour la liste de joueurs sans rapport
-        cols_to_show = [
-            "Prénom", "Player", "Date de naissance", "Pied", "Taille", "Poste", 
-            "Championnat", "Club", "Fin de contrat", "Profil", "Type de joueur", "Potential"
-        ]
+        st.error("❌ La colonne 'Rapport' est introuvable dans le DataFrame. Vérifiez votre Google Sheet.")
 
-        st.markdown("Voici la liste des joueurs sans rapport de scout :")
-        st.dataframe(watchlist_df[cols_to_show].sort_values(by="Submitted at", ascending=False), use_container_width=True)
+####################################################################################################################################################################################### 
+####################################################################################################################################################################################### 
 
-        # Ajout d'un bouton pour télécharger la liste
-        def convert_watchlist_to_excel(df):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Watchlist')
-            return output.getvalue()
+SHORTLIST_FILE = Path("shortlist_global.json")
 
-        excel_watchlist = convert_watchlist_to_excel(watchlist_df[cols_to_show])
+# Initialiser ou charger la shortlist globale
+if SHORTLIST_FILE.exists():
+    with open(SHORTLIST_FILE, "r") as f:
+        shortlist_data = json.load(f)
+else:
+    shortlist_data = {pos: [] for pos in [
+        'GK', 'RB', 'RCB', 'LCB', 'LB',
+        'RCM', 'CM', 'LCM',
+        'RW', 'ST', 'LW']}
 
-        st.download_button(
-            label="📂 Télécharger la liste des joueurs sans rapport",
-            data=excel_watchlist,
-            file_name="FCV_Joueurs_sans_rapport.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+if page == "Short List":
+    st.markdown('<h2 style="color:#1E64C8; margin-bottom: 20px;"> Short List - Shadow Team</h2>', unsafe_allow_html=True)
+
+    available_players = df['Player'].dropna().unique().tolist()
+
+    def save_shortlist():
+        with open(SHORTLIST_FILE, "w") as f:
+            json.dump(shortlist_data, f, indent=2)
+
+    def render_position_select(position):
+        st.markdown(f"### {position}")
+
+        current_list = shortlist_data[position]
+
+        if len(current_list) < 5:
+            selected = st.selectbox(
+                f"Ajouter un joueur à {position} :",
+                ["-- Choisir --"] + [p for p in available_players if p not in current_list],
+                key=f"select_{position}"
+            )
+            if selected != "-- Choisir --" and selected not in current_list:
+                shortlist_data[position].append(selected)
+                save_shortlist()
+
+        if current_list:
+            st.markdown("**Joueurs sélectionnés :**")
+            for player in current_list:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.write(player)
+                with col2:
+                    if st.button(f"❌", key=f"remove_{position}_{player}"):
+                        shortlist_data[position].remove(player)
+                        save_shortlist()
+
+    with st.container():
+        st.markdown("#### 🧤 Défense")
+        def1, def2, def3, def4, def5 = st.columns(5)
+        with def1: render_position_select("GK")
+        with def2: render_position_select("RB")
+        with def3: render_position_select("RCB")
+        with def4: render_position_select("LCB")
+        with def5: render_position_select("LB")
+
+    with st.container():
+        st.markdown("#### 🎯 Milieu")
+        mid1, mid2, mid3 = st.columns(3)
+        with mid1: render_position_select("RCM")
+        with mid2: render_position_select("CM")
+        with mid3: render_position_select("LCM")
+
+    with st.container():
+        st.markdown("#### 🔥 Attaque")
+        att1, att2, att3 = st.columns(3)
+        with att1: render_position_select("RW")
+        with att2: render_position_select("ST")
+        with att3: render_position_select("LW")
+
+    if st.button("🗑️ Réinitialiser toute la Shortlist"):
+        shortlist_data = {pos: [] for pos in shortlist_data}
+        save_shortlist()
+        st.success("Shortlist réinitialisée.")
+
+    # Vue récapitulative par tableau
+    st.markdown("---")
+    st.subheader("📋 Vue récapitulative de la Shortlist")
+    recap_df = pd.DataFrame.from_dict(shortlist_data, orient='index').reset_index()
+    recap_df.columns = ['Poste', 'Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5']
+    st.dataframe(recap_df, use_container_width=True)
+
+    # Vue terrain 1-4-3-3
+    st.markdown("---")
+    st.subheader("📷 Vue terrain 1-4-3-3")
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
+    ax.axis('off')
+    
+    position_coords = {
+        "GK": (50, 10),
+        "RB": (80, 25), "RCB": (65, 30), "LCB": (35, 30), "LB": (20, 25),
+        "RCM": (70, 50), "CM": (50, 55), "LCM": (30, 50),
+        "RW": (80, 75), "ST": (50, 80), "LW": (20, 75)
+    }
+
+    for pos, (x, y) in position_coords.items():
+        players = shortlist_data.get(pos, [])
+        label = f"{pos}\n" + "\n".join(players[:2])  # Montre les 2 premiers max
+        ax.text(x, y, label, ha='center', va='center', fontsize=9, bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
+
+    st.pyplot(fig)
+
 
 
 elif page == "Statsbomb":
