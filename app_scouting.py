@@ -506,141 +506,141 @@ if page == "Joueur à regarder":
 ####################################################################################################################################################################################### 
 
 
-# --- GitHub Settings from Streamlit Secrets ---
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-REPO_NAME = st.secrets["REPO_NAME"]
-BRANCH = st.secrets["BRANCH"]
-SHORTLIST_PATH = st.secrets["SHORTLIST_PATH"]
+# # --- GitHub Settings from Streamlit Secrets ---
+# GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+# REPO_NAME = st.secrets["REPO_NAME"]
+# BRANCH = st.secrets["BRANCH"]
+# SHORTLIST_PATH = st.secrets["SHORTLIST_PATH"]
 
-GITHUB_API_URL = f"https://api.github.com/repos/{REPO_NAME}/contents/{SHORTLIST_PATH}"
-HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+# GITHUB_API_URL = f"https://api.github.com/repos/{REPO_NAME}/contents/{SHORTLIST_PATH}"
+# HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
-# --- Load shortlist from GitHub ---
-def load_shortlist():
-    response = requests.get(GITHUB_API_URL, headers=HEADERS)
-    if response.status_code == 200:
-        content = response.json()
-        decoded = base64.b64decode(content['content']).decode('utf-8')
-        return json.loads(decoded), content['sha']
-    else:
-        default = {pos: [] for pos in [
-            'GK', 'RB', 'RCB', 'LCB', 'LB',
-            'RCM', 'CM', 'LCM',
-            'RW', 'ST', 'LW']}
-        return default, None
+# # --- Load shortlist from GitHub ---
+# def load_shortlist():
+#     response = requests.get(GITHUB_API_URL, headers=HEADERS)
+#     if response.status_code == 200:
+#         content = response.json()
+#         decoded = base64.b64decode(content['content']).decode('utf-8')
+#         return json.loads(decoded), content['sha']
+#     else:
+#         default = {pos: [] for pos in [
+#             'GK', 'RB', 'RCB', 'LCB', 'LB',
+#             'RCM', 'CM', 'LCM',
+#             'RW', 'ST', 'LW']}
+#         return default, None
 
-# --- Save shortlist to GitHub ---
-def save_shortlist(shortlist_data, sha=None):
-    content = json.dumps(shortlist_data, indent=2)
-    encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-    data = {
-        "message": "update shortlist",
-        "content": encoded,
-        "branch": BRANCH
-    }
-    if sha:
-        data["sha"] = sha
-        response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
-    else:
-        response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
-    return response.status_code in [200, 201]
+# # --- Save shortlist to GitHub ---
+# def save_shortlist(shortlist_data, sha=None):
+#     content = json.dumps(shortlist_data, indent=2)
+#     encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+#     data = {
+#         "message": "update shortlist",
+#         "content": encoded,
+#         "branch": BRANCH
+#     }
+#     if sha:
+#         data["sha"] = sha
+#         response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
+#     else:
+#         response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
+#     return response.status_code in [200, 201]
 
-shortlist_data, shortlist_sha = load_shortlist()
+# shortlist_data, shortlist_sha = load_shortlist()
 
-if page == "Short List":
-    st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;"> Short List - Shadow Team (1-4-3-3)</h2>', unsafe_allow_html=True)
+# if page == "Short List":
+#     st.markdown('<h2 style="color:#0031E3; margin-bottom: 20px;"> Short List - Shadow Team (1-4-3-3)</h2>', unsafe_allow_html=True)
 
-    available_players = df['Player'].dropna().unique().tolist()
+#     available_players = df['Player'].dropna().unique().tolist()
 
-    def render_position_select(position):
-        st.markdown(f"### {position}")
+#     def render_position_select(position):
+#         st.markdown(f"### {position}")
 
-        current_list = shortlist_data.get(position, [])
-        if not isinstance(current_list, list):
-            current_list = []
+#         current_list = shortlist_data.get(position, [])
+#         if not isinstance(current_list, list):
+#             current_list = []
 
-        selected = st.multiselect(
-            f"Ajouter des joueurs à {position} :",
-            [p for p in available_players if p not in current_list],
-            key=f"multi_{position}"
-        )
+#         selected = st.multiselect(
+#             f"Ajouter des joueurs à {position} :",
+#             [p for p in available_players if p not in current_list],
+#             key=f"multi_{position}"
+#         )
 
-        updated = False
-        for player in selected:
-            if player not in current_list and len(current_list) < 5:
-                current_list.append(player)
-                updated = True
+#         updated = False
+#         for player in selected:
+#             if player not in current_list and len(current_list) < 5:
+#                 current_list.append(player)
+#                 updated = True
 
-        if updated:
-            shortlist_data[position] = current_list
-            save_shortlist(shortlist_data, shortlist_sha)
+#         if updated:
+#             shortlist_data[position] = current_list
+#             save_shortlist(shortlist_data, shortlist_sha)
 
-        if current_list:
-            st.markdown("**Joueurs sélectionnés :**")
-            for player in current_list:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.write(player)
-                with col2:
-                    if st.button(f"❌", key=f"remove_{position}_{player}"):
-                        current_list.remove(player)
-                        shortlist_data[position] = current_list
-                        save_shortlist(shortlist_data, shortlist_sha)
+#         if current_list:
+#             st.markdown("**Joueurs sélectionnés :**")
+#             for player in current_list:
+#                 col1, col2 = st.columns([4, 1])
+#                 with col1:
+#                     st.write(player)
+#                 with col2:
+#                     if st.button(f"❌", key=f"remove_{position}_{player}"):
+#                         current_list.remove(player)
+#                         shortlist_data[position] = current_list
+#                         save_shortlist(shortlist_data, shortlist_sha)
 
-    with st.container():
-        st.markdown("#### 🧤 Défense")
-        def1, def2, def3, def4, def5 = st.columns(5)
-        with def1: render_position_select("GK")
-        with def2: render_position_select("RB")
-        with def3: render_position_select("RCB")
-        with def4: render_position_select("LCB")
-        with def5: render_position_select("LB")
+#     with st.container():
+#         st.markdown("#### 🧤 Défense")
+#         def1, def2, def3, def4, def5 = st.columns(5)
+#         with def1: render_position_select("GK")
+#         with def2: render_position_select("RB")
+#         with def3: render_position_select("RCB")
+#         with def4: render_position_select("LCB")
+#         with def5: render_position_select("LB")
 
-    with st.container():
-        st.markdown("#### 🎯 Milieu")
-        mid1, mid2, mid3 = st.columns(3)
-        with mid1: render_position_select("RCM")
-        with mid2: render_position_select("CM")
-        with mid3: render_position_select("LCM")
+#     with st.container():
+#         st.markdown("#### 🎯 Milieu")
+#         mid1, mid2, mid3 = st.columns(3)
+#         with mid1: render_position_select("RCM")
+#         with mid2: render_position_select("CM")
+#         with mid3: render_position_select("LCM")
 
-    with st.container():
-        st.markdown("#### 🔥 Attaque")
-        att1, att2, att3 = st.columns(3)
-        with att1: render_position_select("RW")
-        with att2: render_position_select("ST")
-        with att3: render_position_select("LW")
+#     with st.container():
+#         st.markdown("#### 🔥 Attaque")
+#         att1, att2, att3 = st.columns(3)
+#         with att1: render_position_select("RW")
+#         with att2: render_position_select("ST")
+#         with att3: render_position_select("LW")
 
-    if st.button("🗑️ Réinitialiser toute la Shortlist"):
-        shortlist_data = {pos: [] for pos in shortlist_data}
-        save_shortlist(shortlist_data, shortlist_sha)
-        st.success("Shortlist réinitialisée.")
+#     if st.button("🗑️ Réinitialiser toute la Shortlist"):
+#         shortlist_data = {pos: [] for pos in shortlist_data}
+#         save_shortlist(shortlist_data, shortlist_sha)
+#         st.success("Shortlist réinitialisée.")
 
-    # Vue terrain 1-4-3-3
-    st.markdown("---")
-    st.subheader("📷 Vue terrain 1-4-3-3")
+#     # Vue terrain 1-4-3-3
+#     st.markdown("---")
+#     st.subheader("📷 Vue terrain 1-4-3-3")
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    ax.set_xlim(0, 100)
-    ax.set_ylim(0, 100)
-    ax.axis('off')
+#     fig, ax = plt.subplots(figsize=(10, 7))
+#     ax.set_xlim(0, 100)
+#     ax.set_ylim(0, 100)
+#     ax.axis('off')
 
-    position_coords = {
-        "GK": (50, 10),
-        "RB": (80, 25), "RCB": (65, 30), "LCB": (35, 30), "LB": (20, 25),
-        "RCM": (70, 50), "CM": (50, 55), "LCM": (30, 50),
-        "RW": (80, 75), "ST": (50, 80), "LW": (20, 75)
-    }
+#     position_coords = {
+#         "GK": (50, 10),
+#         "RB": (80, 25), "RCB": (65, 30), "LCB": (35, 30), "LB": (20, 25),
+#         "RCM": (70, 50), "CM": (50, 55), "LCM": (30, 50),
+#         "RW": (80, 75), "ST": (50, 80), "LW": (20, 75)
+#     }
 
-    for pos, (x, y) in position_coords.items():
-        players = shortlist_data.get(pos, [])
-        if isinstance(players, list) and players:
-            label = f"{pos}\n" + "\n".join(players[:5])
-        else:
-            label = pos
-        ax.text(x, y, label, ha='center', va='center', fontsize=9,
-                bbox=dict(facecolor='#0043a4', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
+#     for pos, (x, y) in position_coords.items():
+#         players = shortlist_data.get(pos, [])
+#         if isinstance(players, list) and players:
+#             label = f"{pos}\n" + "\n".join(players[:5])
+#         else:
+#             label = pos
+#         ax.text(x, y, label, ha='center', va='center', fontsize=9,
+#                 bbox=dict(facecolor='#0031E3', alpha=0.7, boxstyle='round,pad=0.5'), color='white')
 
-    st.pyplot(fig)
+#     st.pyplot(fig)
 
 
     
