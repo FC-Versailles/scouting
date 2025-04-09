@@ -20,8 +20,11 @@ import uuid
 import json
 from pathlib import Path
 import requests
-
-
+from fpdf import FPDF
+import tempfile
+import base64
+import unicodedata
+from scipy.stats import zscore
 
 st.set_page_config(layout='wide')
 
@@ -718,18 +721,18 @@ elif page == "Statsbomb":
     
     # Dictionnaire des compétences
     competences_dict = {
-        "Compétences : Création des occasions": ("np_xg_90", "xa_90"),
-        "Compétences : Qualité de Dribble": ("dribbles_90", "dribble_ratio"),
-        "Compétences : Etat de confiance": ("npxgxa_90", "over_under_performance_90"),
-        "Compétences : Qualité de tirs": ("obv_shot_90", "np_psxg_90"),
-        "Compétences : Faire progresseur le jeu vers l'avant": ("carry_length", "deep_progressions_90"),
-        "Compétences : Agir le plus proche possible du but": ("op_passes_into_and_touches_inside_box_90", "deep_completions_90"),
-        "Compétences : Capacité à conserver le ballon": ("change_in_passing_ratio", "turnovers_90"),
-        "Compétences : Création de danger": ("obv_dribble_carry_90", "obv_pass_90"),
-        "Compétences : Intensité sans ballon": ("average_x_pressure", "counterpressures_90"),
-        "Compétences : Pressing": ("padj_pressures_90", "pressure_regains_90"),
-        "Compétences : Récupérer des ballons": ("ball_recoveries_90", "padj_interceptions_90"),
-        "Compétences : Duels Aérien": ("aerial_wins_90", "aerial_ratio")
+        "Création des occasions": ("np_xg_90", "xa_90"),
+        "Qualité de Dribble": ("dribbles_90", "dribble_ratio"),
+        "Etat de confiance": ("npxgxa_90", "over_under_performance_90"),
+        "Qualité de tirs": ("obv_shot_90", "np_psxg_90"),
+        "Faire progresseur le jeu vers l'avant": ("carry_length", "deep_progressions_90"),
+        "Agir le plus proche possible du but": ("op_passes_into_and_touches_inside_box_90", "deep_completions_90"),
+        "Capacité à conserver le ballon": ("change_in_passing_ratio", "turnovers_90"),
+        "Création de danger": ("obv_dribble_carry_90", "obv_pass_90"),
+        "Intensité sans ballon": ("average_x_pressure", "counterpressures_90"),
+        "Pressing": ("padj_pressures_90", "pressure_regains_90"),
+        "Récupérer des ballons": ("ball_recoveries_90", "padj_interceptions_90"),
+        "Duels Aérien": ("aerial_wins_90", "aerial_ratio")
     }
 
     col1, col2, col3, col4 = st.columns(4)
@@ -776,7 +779,26 @@ elif page == "Statsbomb":
         (filtered_data["minutes"] <= minutes[1])
     ]
     
-    player_selection = st.multiselect("Choisis les joueurs à mettre en valeur", filtered_data["player_name"].unique())
+       # Liste des joueurs disponibles après filtre
+    available_players = filtered_data["player_name"].unique()
+    
+    # Session state pour conserver la sélection des joueurs
+    if "player_selection" not in st.session_state:
+        st.session_state.player_selection = []
+    
+    # Liste fusionnée : joueurs disponibles + ceux déjà sélectionnés
+    merged_players = list(set(available_players).union(set(st.session_state.player_selection)))
+    
+    # Multiselect avec persistance
+    player_selection = st.multiselect(
+        "Choisis les joueurs à mettre en valeur",
+        options=merged_players,
+        default=st.session_state.player_selection
+    )
+    
+    # Mise à jour de la session
+    st.session_state.player_selection = player_selection
+
 
     selected_competence = st.selectbox("Choisis une compétence à analyser", list(competences_dict.keys()))
     x_col, y_col = competences_dict[selected_competence]
@@ -790,9 +812,6 @@ elif page == "Statsbomb":
         st.warning("Aucune donnée pour les filtres sélectionnés.")
         
         
-    st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
-
-
     chosen_variables = [
         "counterpressures_90", "aggressive_actions_90",
         "aerial_wins_90", "aerial_ratio",
@@ -806,9 +825,9 @@ elif page == "Statsbomb":
         "crosses_90", "xa_90",
         "shot_touch_ratio", "touches_inside_box_90",
         "np_psxg_90", "obv_shot_90",
-        "dribbles_90", "obv_dribble_carry_90",
+        "total_dribbles_90", "obv_dribble_carry_90",
         "defensive_action_regains_90", "pressure_regains_90",
-        "np_xg_90", "np_xg_per_shot"
+        "np_xg_90", "np_xg_per_shot","xs_ratio","sp_xa_90","sp_key_passes_90","gsaa_90","obv_defensive_action_90","ball_recoveries_90"
     ]
     
     column_mappings = {
@@ -816,49 +835,203 @@ elif page == "Statsbomb":
         "Header": [ "aerial_wins_90", "aerial_ratio"],
         "Technicien": ["change_in_passing_ratio", "turnovers_90"],
         "Defender": ["padj_tackles_90", "padj_interceptions_90"],
-        "Blocker": ["blocks_per_shot", "padj_clearances_90"],
+        "Protecteur": ["blocks_per_shot", "padj_clearances_90"],
+        "Annihilateur": ["obv_defensive_action_90", "ball_recoveries_90"],
         "Conserver": ["passing_ratio", "dispossessions_90"],
         "Progress": ["carries_90", "carry_length"],
         "Pass": ["forward_pass_proportion", "obv_pass_90"],
-        "Dribble": ["dribbled_past_90", "dribble_faced_ratio"],       
+        "1v1": ["dribbled_past_90", "dribble_faced_ratio"], 
         "Assist": ["crosses_90", "xa_90"],     
         "Box": ["shot_touch_ratio", "touches_inside_box_90"],
         "Tireur": ["np_psxg_90", "obv_shot_90"],
-        "Pecuteur": ["dribbles_90", "obv_dribble_carry_90"],
+        "Percuteur": ["total_dribbles_90", "obv_dribble_carry_90"],
         "Recuperateur": ["defensive_action_regains_90", "pressure_regains_90"],
         "Striker": ["np_xg_90", "np_xg_per_shot"],
+        "GK": ["xs_ratio", "gsaa_90"],
+        "Set Pieces": ["sp_xa_90","sp_key_passes_90"]
     }
     
-        # Z-score
-    zscore_df = data[['player_name', 'primary_position'] + chosen_variables].copy()
-    zscore_df.fillna(zscore_df.median(numeric_only=True), inplace=True)
-    zscore_df[chosen_variables] = (zscore_df[chosen_variables] - zscore_df[chosen_variables].mean()) / zscore_df[chosen_variables].std()
+     
     
-    # Aggregate profile scores
+    # 🛑 Variables pour lesquelles un score élevé est négatif
+    negatively_correlated = [
+        "turnovers_90", "dispossessions_90", "dribbled_past_90"
+    ]
+    
+    zscore_df = filtered_data[['player_name', 'primary_position']].copy()
+    for var in chosen_variables:
+        if var in filtered_data.columns:
+            values = filtered_data[var]
+            if var in negatively_correlated:
+                zscore_df[var] = -zscore(values, nan_policy="omit")
+            else:
+                zscore_df[var] = zscore(values, nan_policy="omit")
+        else:
+            st.warning(f"⚠️ Colonne introuvable : {var}")
+        
+    # 🧮 Création des profils
     aggregated_df = zscore_df[['player_name', 'primary_position']].copy()
-    for profile_name, vars_ in column_mappings.items():
-        aggregated_df[profile_name] = zscore_df[vars_[0]] + zscore_df[vars_[1]]
+    for profile, cols in column_mappings.items():
+        if cols[0] in zscore_df.columns and cols[1] in zscore_df.columns:
+            aggregated_df[profile] = zscore_df[cols[0]] + zscore_df[cols[1]]
     
-    aggregated_df["Total_Profile_Score"] = aggregated_df[list(column_mappings.keys())].sum(axis=1)
+    aggregated_df["Total Score"] = aggregated_df[list(column_mappings.keys())].sum(axis=1)
     
-    # ✅ Rename columns for plotting
+    # ✅ Renommer pour affichage
     aggregated_df = aggregated_df.rename(columns={
         "player_name": "Name",
         "primary_position": "Position"
     })
     
-    # Streamlit app
-    st.title("Player Profiling: Championnat National")
-      
-    # Select profiles to show in the table
-    selected_profiles = st.multiselect("Select profiles to display in the table:", options=list(column_mappings.keys()), default=["Agresseur", "Defender", "Striker"])
+    # ➕ Ajout de la compétition pour styliser
+    aggregated_df = aggregated_df.merge(
+        filtered_data[["player_name", "competition_name"]],
+        how="left",
+        left_on="Name",
+        right_on="player_name"
+    )
+    aggregated_df.drop(columns=["player_name"], inplace=True)
     
-    # Show table below
+        # 📋 Choix des profils à afficher
+        # 📋 Choix des profils à afficher
+    selected_profiles = st.multiselect(
+        "Selectionner compétences:",
+        options=list(column_mappings.keys()),
+        default=["Agresseur", "Defender", "Striker"]
+    )
+
     if selected_profiles:
-        table_df = aggregated_df[['Name', 'Position'] + selected_profiles + ['Total_Profile_Score']].sort_values(by='Total_Profile_Score', ascending=False)
-        st.subheader("Player Table")
-        st.dataframe(table_df, use_container_width=True)
+        # Coefficients personnalisés pour chaque profil sélectionné
+        st.markdown("##### Pondération des profils sélectionnés")
+        profile_weights = {}
+        cols = st.columns(5)
+        for idx, profile in enumerate(selected_profiles):
+            with cols[idx % 5]:
+                profile_weights[profile] = st.number_input(
+                    f"{profile} :", min_value=0.0, max_value=10.0, value=1.0, step=0.1
+                )
     
+        # 💡 Calcul du score pondéré
+        aggregated_df["Profile Score"] = sum(
+            aggregated_df[profile] * weight for profile, weight in profile_weights.items()
+        )
+    
+        # 📄 Colonnes dans l’ordre souhaité
+        columns_to_display = (
+            ['Name', 'Position'] +
+            selected_profiles +
+            ['Profile Score', 'Total Score']
+        )
+    
+        # Création de la table finale
+        table_df = (
+            aggregated_df[columns_to_display]
+            .drop_duplicates(subset=["Name"])
+            .sort_values(by='Profile Score', ascending=False)
+            .head(30)
+        )
+    
+        # 🎨 Stylisation
+        def highlight_name(val, comp):
+            color_map = {
+                c: plt.cm.tab10(i / 10) for i, c in enumerate(aggregated_df["competition_name"].dropna().unique())
+            }
+            rgba = color_map.get(comp, (1, 1, 1, 1))  # blanc par défaut
+            r, g, b = [int(x * 255) for x in rgba[:3]]
+            return f"color: rgb({r},{g},{b})"
+    
+        def style_table(df, full_df):
+            styled = df.style
+            cmap_cols = selected_profiles + ["Profile Score", "Total Score"]
+            styled = styled.background_gradient(cmap="YlGnBu", subset=cmap_cols)
+            styled = styled.apply(
+                lambda row: [
+                    highlight_name(row['Name'], full_df.loc[full_df['Name'] == row['Name'], 'competition_name'].values[0])
+                    if col == 'Name' else ''
+                    for col in df.columns
+                ],
+                axis=1
+            )
+            return styled
+    
+        st.subheader("Liste des joueurs")
+        st.dataframe(style_table(table_df, aggregated_df), use_container_width=True)
+    
+        # 🔧 Nettoie les caractères spéciaux pour PDF
+        def clean_text(text):
+            if not isinstance(text, str):
+                text = str(text)
+            return unicodedata.normalize('NFKD', text).encode('latin-1', 'ignore').decode('latin-1')
+    
+        # 📄 Classe PDF simple avec Arial
+        class PDF(FPDF):
+            def header(self):
+                self.set_font("Arial", "B", 12)
+                self.cell(0, 10, "Player Profile Table", 0, 1, "C")
+                self.ln(5)
+    
+        pdf = PDF()
+        pdf.add_page()
+        pdf.set_font("Arial", "", 8)
+    
+        # 🧱 Dimensions
+        col_width = 25
+        row_height = 6
+    
+        # En-têtes
+        for col in table_df.columns:
+            pdf.cell(col_width, row_height, clean_text(col), border=1)
+        pdf.ln(row_height)
+    
+        # Lignes du tableau
+        for _, row in table_df.iterrows():
+            for item in row:
+                text = clean_text(round(item, 2)) if isinstance(item, float) else clean_text(item)
+                pdf.cell(col_width, row_height, text, border=1)
+            pdf.ln(row_height)
+    
+        # 📤 Export en PDF
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
+            pdf.output(tmpfile.name)
+            with open(tmpfile.name, "rb") as f:
+                base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+            download_link = f'<a href="data:application/pdf;base64,{base64_pdf}" download="player_table.pdf">📄 Télécharger la table en PDF</a>'
+            st.markdown(download_link, unsafe_allow_html=True)
+    
+    else:
+        st.info("Sélectionne au moins un profil pour afficher la table et générer le PDF.")
+    
+    with st.expander("📘 Glossaire des profils (clique pour afficher)"):
+        st.markdown("""
+        <style>
+        .profil-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .profil-desc {
+            margin-bottom: 10px;
+        }
+        </style>
+    
+        <div class='profil-desc'><span class='profil-label'>🧨 Agresseur :</span> Capacité à effectuer des contre-pressings et des actions agressives immédiatement après la perte du ballon.</div>
+        <div class='profil-desc'><span class='profil-label'>🪖 Header :</span> Capacité à remporter les duels aériens et à être efficace dans les airs.</div>
+        <div class='profil-desc'><span class='profil-label'>🎩 Technicien :</span> Capacité à limiter les pertes de balle et à améliorer la précision des passes.</div>
+        <div class='profil-desc'><span class='profil-label'>🛡 Defender :</span> Aptitude à réaliser des tacles et des interceptions efficaces.</div>
+        <div class='profil-desc'><span class='profil-label'>🧱 Protecteur :</span> Capacité à bloquer les tirs et à dégager proprement la zone défensive.</div>
+        <div class='profil-desc'><span class='profil-label'>🚫 Annihilateur :</span> Capacité à détruire les actions adverses et récupérer des ballons clés.</div>
+        <div class='profil-desc'><span class='profil-label'>🔒 Conserver :</span> Capacité à conserver la possession, éviter les pertes inutiles.</div>
+        <div class='profil-desc'><span class='profil-label'>➡️ Progress :</span> Capacité à faire avancer le jeu via des courses ou transmissions verticales.</div>
+        <div class='profil-desc'><span class='profil-label'>🎯 Pass :</span> Capacité à effectuer des passes vers l’avant créatrices de valeur.</div>
+        <div class='profil-desc'><span class='profil-label'>⚔️ 1v1 :</span> Capacité à résister aux dribbles adverses et à défendre en un contre un.</div>
+        <div class='profil-desc'><span class='profil-label'>🅰️ Assist :</span> Capacité à créer des occasions via des centres et des passes décisives.</div>
+        <div class='profil-desc'><span class='profil-label'>📦 Box :</span> Présence et efficacité dans la surface adverse.</div>
+        <div class='profil-desc'><span class='profil-label'>🎯 Tireur :</span> Qualité des tirs, dangerosité générée.</div>
+        <div class='profil-desc'><span class='profil-label'>🏃 Percuteur :</span> Capacité à dribbler et porter le ballon pour déséquilibrer.</div>
+        <div class='profil-desc'><span class='profil-label'>♻️ Recuperateur :</span> Capacité à récupérer la possession suite à des actions défensives.</div>
+        <div class='profil-desc'><span class='profil-label'>🎯 Striker :</span> Efficacité devant le but, qualité des occasions et des tirs.</div>
+        <div class='profil-desc'><span class='profil-label'>🧤 GK :</span> Efficacité du gardien à stopper les tirs et surpasser les attentes.</div>
+        <div class='profil-desc'><span class='profil-label'>🎯 Set Pieces :</span> Qualité des passes sur coups de pied arrêtés et création d’occasions.</div>
+        """, unsafe_allow_html=True)
 
 
 st.markdown("""
