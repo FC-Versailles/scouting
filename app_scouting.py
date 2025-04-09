@@ -827,7 +827,7 @@ elif page == "Statsbomb":
         "np_psxg_90", "obv_shot_90",
         "total_dribbles_90", "obv_dribble_carry_90",
         "defensive_action_regains_90", "pressure_regains_90",
-        "np_xg_90", "np_xg_per_shot","xs_ratio","sp_xa_90","sp_key_passes_90","gsaa_90","obv_defensive_action_90","ball_recoveries_90"
+        "np_xg_90", "np_xg_per_shot","xs_ratio","sp_xa_90","sp_key_passes_90","gsaa_90","obv_defensive_action_90","ball_recoveries_90","deep_progressions_90","op_f3_passes_90"
     ]
     
     column_mappings = {
@@ -848,7 +848,8 @@ elif page == "Statsbomb":
         "Recuperateur": ["defensive_action_regains_90", "pressure_regains_90"],
         "Striker": ["np_xg_90", "np_xg_per_shot"],
         "GK": ["xs_ratio", "gsaa_90"],
-        "Set Pieces": ["sp_xa_90","sp_key_passes_90"]
+        "Set Pieces": ["sp_xa_90","sp_key_passes_90"],
+        "Last third": ["deep_progressions_90","op_f3_passes_90"]
     }
     
      
