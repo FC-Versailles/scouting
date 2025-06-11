@@ -56,6 +56,10 @@ session = requests_cache.CachedSession(backend="memory")
 df1 = sb.player_season_stats(competition_id=129, season_id=317,creds = DEFAULT_CREDS)
 df2 = sb.player_season_stats(competition_id=7, season_id=317,creds = DEFAULT_CREDS)
 df3 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
+df4 = sb.player_season_stats(competition_id=177, season_id=317,creds = DEFAULT_CREDS)
+df5 = sb.player_season_stats(competition_id=63, season_id=317,creds = DEFAULT_CREDS)
+df6 = sb.player_season_stats(competition_id=1035, season_id=317,creds = DEFAULT_CREDS)
+df7 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
 
 data = pd.concat([df1, df2,df3], ignore_index=True)
 
