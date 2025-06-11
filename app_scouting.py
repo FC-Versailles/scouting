@@ -61,7 +61,7 @@ df5 = sb.player_season_stats(competition_id=63, season_id=317,creds = DEFAULT_CR
 df6 = sb.player_season_stats(competition_id=1035, season_id=317,creds = DEFAULT_CREDS)
 df7 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
 
-data = pd.concat([df1, df2,df3], ignore_index=True)
+data = pd.concat([df1, df2,df3,df4,df5,df6,df7], ignore_index=True)
 
 data = data.drop(columns=[
     'account_id', 'player_id', 'team_id', 'competition_id', 'season_id', 
