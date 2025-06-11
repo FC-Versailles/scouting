@@ -43,7 +43,7 @@ st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
 
 DEFAULT_CREDS = {
     "user": "mathieu.feigean@fcversailles.com",
-    "passwd": "uVBxDK5X",
+    "passwd": "Florence3007!",
 }
 
 # Looking at all competitions to search for comp and season id
