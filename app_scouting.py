@@ -43,7 +43,7 @@ st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
 
 DEFAULT_CREDS = {
     "user": "mathieu.feigean@fcversailles.com",
-    "passwd": "Florence3007!",
+    "passwd": "uVBxDK5X",
 }
 
 # Looking at all competitions to search for comp and season id
@@ -54,19 +54,26 @@ sb.CACHE_ENABLED = False
 session = requests_cache.CachedSession(backend="memory")
 
 df1 = sb.player_season_stats(competition_id=129, season_id=317,creds = DEFAULT_CREDS)
-df2 = sb.player_season_stats(competition_id=7, season_id=317,creds = DEFAULT_CREDS)
+df2 = sb.player_season_stats(competition_id=1035, season_id=317,creds = DEFAULT_CREDS)
 df3 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
 df4 = sb.player_season_stats(competition_id=177, season_id=317,creds = DEFAULT_CREDS)
 df5 = sb.player_season_stats(competition_id=63, season_id=317,creds = DEFAULT_CREDS)
-df6 = sb.player_season_stats(competition_id=1035, season_id=317,creds = DEFAULT_CREDS)
-df7 = sb.player_season_stats(competition_id=8, season_id=317,creds = DEFAULT_CREDS)
 
-data = pd.concat([df1, df2,df3,df4,df5,df6,df7], ignore_index=True)
 
-data = data.drop(columns=[
+data = pd.concat([df1, df2,df3,df4,df5], ignore_index=True)
+
+cols_to_drop = [
     'account_id', 'player_id', 'team_id', 'competition_id', 'season_id', 
     'country_id', 'player_female', 'player_first_name', 'player_last_name', 'player_known_name'
-])
+]
+
+existing_cols = [col for col in cols_to_drop if col in data.columns]
+
+if missing := list(set(cols_to_drop) - set(existing_cols)):
+    st.warning(f"Colonnes absentes ignorées : {missing}")
+
+data = data.drop(columns=existing_cols)
+
 
 
 # Remove the "player_season_" prefix from applicable column names
