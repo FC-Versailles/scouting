@@ -48,7 +48,7 @@ def check_scout_login():
         st.session_state.logged_in = False
 
     if not st.session_state.logged_in:
-        st.title("FC Versailles | Accès Sécurisé")
+        st.title("Recrutement | Accès Sécurisé")
         id_input = st.text_input("Identifiant :", type="password")
         if st.button("Connexion"):
             if id_input == "ernesto":
@@ -63,10 +63,10 @@ check_scout_login()
 
 
 # Display the club logo from GitHub at the top right
-logo_url = 'https://raw.githubusercontent.com/FC-Versailles/scouting/main/logo.png'
+logo_url = ''
 col1, col2 = st.columns([9, 1])
 with col1:
-    st.title("Recrutement | FC Versailles")
+    st.title("Recrutement | Ernesto")
 with col2:
     st.image(logo_url, use_container_width=True)
     
@@ -141,7 +141,7 @@ data = data[column_order]
 
 
 params = st.query_params
-default_page = params.get("page", "FCV Database")
+default_page = params.get("page", "Statsbomb")
 PAGES = ["Statsbomb"]
 page = st.sidebar.selectbox("Select Page", PAGES, index=PAGES.index(default_page))
 
