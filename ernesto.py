@@ -63,12 +63,11 @@ check_scout_login()
 
 
 # Display the club logo from GitHub at the top right
-logo_url = ''
+
 col1, col2 = st.columns([9, 1])
 with col1:
     st.title("Recrutement | Ernesto")
-with col2:
-    st.image(logo_url, use_container_width=True)
+
     
 st.markdown("<hr style='border:1px solid #ddd' />", unsafe_allow_html=True)
 
